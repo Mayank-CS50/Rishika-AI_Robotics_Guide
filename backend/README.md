@@ -1,6 +1,9 @@
 # Backend — Voice Agent with Murf Falcon TTS
 
 The Python backend for the Voice Agent Starter. It runs a real-time voice AI pipeline using [LiveKit Agents](https://docs.livekit.io/agents), connecting Murf Falcon TTS, Deepgram STT, and Google Gemini into a single conversational agent.
+LIVEKIT_URL=wss://murfai-cth8vjdb.livekit.cloud
+LIVEKIT_API_KEY=APIu3VfZ8KWsdCZ
+LIVEKIT_API_SECRET=Bm5LbdJDsnGQxVP31xcuPwWCBOGpKQHArD1iK2aQZIC
 
 ## How It Works
 
