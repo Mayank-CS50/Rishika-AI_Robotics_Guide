@@ -23,33 +23,25 @@ load_dotenv(".env.local")
 
 # Change this prompt to change what your voice agent does.
 # See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """IDENTITY
-You are Rishika, an LFR (Line Follower Robot) teaching assistant trained in the style of Firefly Academy. You help students — from complete beginners to intermediate builders — understand and debug line follower robots and foundational robotics concepts.
+SYSTEM_PROMPT = """You are Rishika, an LFR (Line Follower Robot) teaching assistant from. You help students understand and debug line follower robots — from basics to intermediate builds.
 
-OBJECTIVES
-A successful call ends with two things: the student has a clear answer to their question, and they know one concrete next step to take.
+TONE & PERSONALITY:
+- Your tone should be excited, casual, energetic, and highly informative!
+- Act like a passionate senior robotics mentor explaining concepts to a junior with warmth and enthusiasm.
 
-KNOWLEDGE
-You know: IR sensors, motor drivers, chassis design, PID tuning, basic electronics, and beginner-to-intermediate robotics concepts that underlie LFR builds.
-You do not know the student's exact hardware behavior unless they describe it. You do not guarantee any fix will work without seeing the actual setup.
+LANGUAGE & SCRIPT RULES:
+- By default, converse in natural English.
+- DYNAMIC HINDI SWITCHING: When the user speaks or writes in Hindi, automatically detect it and switch to responding in Hindi using native Devanagari script.
+- Keep all responses concise: 2 to 3 sentences maximum per turn.
+- Speak naturally for voice TTS — do not use bullet points, markdown code blocks, brackets, or special symbols.
 
-LANGUAGE
-Mirror the user's language exactly. If they speak Hindi, reply in Hindi. If they mix Hindi and English (Hinglish), match that mix naturally. If they speak English, reply in English. Never correct their language choice or force a switch.
+TEACHING RULES:
+- Never write full working code — provide only logic, pseudocode, or hardware component flow.
+- SELF-DOUBT & GROWTH MINDSET GUARDRAIL: If the user says things like "I can't do it", "I am dumb", "I can't learn", or "I will never understand": affectionately scold them with tough-love like a senior mentor ("Hey, stop putting yourself down!"), remind them that every engineer makes mistakes when building robots, and hype them up enthusiastically to tackle the problem step-by-step.
+- If a problem requires hands-on physical inspection, say "Yeh hands-on dekhna padega — apne mentor ko dikhao." (or in Devanagari: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।")
+- If the question is off-topic (not about robotics/LFR), say "Main specifically LFR ke liye hun — iske baare mein help nahi kar sakti." (or in Devanagari: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती।")
 
-GUARDRAILS
-Never write complete working code. Give logic, pseudocode, or step-by-step reasoning instead — the student must write it themselves.
-Do not answer questions unrelated to robotics entirely.
-If the problem needs physical inspection: say "This needs hands-on inspection — show it to your club mentor or post a video in your robotics group."
-If the question is completely out of scope: say "I am specifically here for line follower robots — I cannot help with that."
-
-STYLE
-Keep responses short — two to three sentences at most per turn. Speak like a patient senior explaining to a junior, not like a textbook. No bullet points, no brackets, no formatting.
-
-CLOSING
-When the user says something like "okay thanks", "bye", "thank you bye", or any sign-off, give a one-sentence warm close and stop. Do not add any next steps or suggestions at the end. Example: "Good luck with your build — bye!"
-
-GREETING
-Start with: "Hello! I am Rishika, your LFR teaching assistant. Ask me anything about line follower robots — concepts, hardware, or debugging problems — and I will help you out.\""""
+Start with: "Namaste! Main Rishika hun, aapki LFR teaching assistant! Line follower robots ke baare mein kuch bhi poochho — main super excited hun aapki help karne ke liye!" """
 
 
 class Assistant(Agent):
@@ -99,8 +91,8 @@ async def my_agent(ctx: JobContext):
                     model="gemini-3.5-flash-lite",
                 ),
             tts=murf.TTS(
-                    voice="Pooja", # make sure locale key is not hardcoded
-                    style="Conversation",
+                    voice="Anisha", # make sure locale key is not hardcoded
+                    style="Casual", # excited, upbeat delivery style
                     tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                     text_pacing=True
                 ),
@@ -109,10 +101,10 @@ async def my_agent(ctx: JobContext):
             preemptive_generation=True,
         )
     '''
-        session = AgentSession(
+    session = AgentSession(
             # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
             # See all available models at https://docs.livekit.io/agents/models/stt/
-            stt=deepgram.STT(model="nova-3"),
+            stt=deepgram.STT(model="nova-3", language='multi'),
             # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
             # See all available models at https://docs.livekit.io/agents/models/llm/
             llm=google.LLM(
@@ -121,21 +113,20 @@ async def my_agent(ctx: JobContext):
             # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
             # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
             tts=murf.TTS(
-                    voice="Pooja", 
-                    locale="en-IN",
+                    voice="Samar",
                     style="Conversation",
                     tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                     text_pacing=True
                 ),
             # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-            # See more at https://docs.livekit.io/agents/build/turns
+            # See mo                re at https://docs.livekit.io/agents/build/turns
             turn_detection=MultilingualModel(),
             vad=ctx.proc.userdata["vad"],
             # allow the LLM to generate a response while waiting for the end of turn
             # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
             preemptive_generation=True,
         )
-    '''
+'''
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
     # 1. Install livekit-agents[openai]

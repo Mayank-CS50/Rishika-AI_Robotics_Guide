@@ -132,6 +132,9 @@ export function TileLayout({
                   }}
                   className={cn('relative aspect-square h-[90px]')}
                 >
+                  {/* Soft ambient foreshadow glow */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[340px] md:size-[420px] bg-gradient-to-tr from-[#EC4899]/18 via-[#10B981]/10 to-transparent blur-[70px] rounded-full pointer-events-none" />
+
                   <AudioVisualizer
                     key="audio-visualizer"
                     initial={{ scale: 1 }}
@@ -152,7 +155,7 @@ export function TileLayout({
                     isChatOpen={chatOpen}
                     className={cn(
                       'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                      'bg-background rounded-[50px] border border-transparent transition-[border,drop-shadow]',
+                      'bg-transparent rounded-full border border-transparent transition-[border,drop-shadow] drop-shadow-[0_0_24px_rgba(236,72,153,0.3)]',
                       chatOpen && 'border-input shadow-2xl/10 delay-200'
                     )}
                     style={{ color: audioVisualizerColor }}

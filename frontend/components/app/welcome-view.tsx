@@ -1,65 +1,250 @@
-import { Button } from '@/components/ui/button';
+'use client';
 
-function WelcomeImage() {
-  return (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="text-fg0 mb-4 size-16"
-    >
-      <path
-        d="M15 24V40C15 40.7957 14.6839 41.5587 14.1213 42.1213C13.5587 42.6839 12.7956 43 12 43C11.2044 43 10.4413 42.6839 9.87868 42.1213C9.31607 41.5587 9 40.7957 9 40V24C9 23.2044 9.31607 22.4413 9.87868 21.8787C10.4413 21.3161 11.2044 21 12 21C12.7956 21 13.5587 21.3161 14.1213 21.8787C14.6839 22.4413 15 23.2044 15 24ZM22 5C21.2044 5 20.4413 5.31607 19.8787 5.87868C19.3161 6.44129 19 7.20435 19 8V56C19 56.7957 19.3161 57.5587 19.8787 58.1213C20.4413 58.6839 21.2044 59 22 59C22.7956 59 23.5587 58.6839 24.1213 58.1213C24.6839 57.5587 25 56.7957 25 56V8C25 7.20435 24.6839 6.44129 24.1213 5.87868C23.5587 5.31607 22.7956 5 22 5ZM32 13C31.2044 13 30.4413 13.3161 29.8787 13.8787C29.3161 14.4413 29 15.2044 29 16V48C29 48.7957 29.3161 49.5587 29.8787 50.1213C30.4413 50.6839 31.2044 51 32 51C32.7956 51 33.5587 50.6839 34.1213 50.1213C34.6839 49.5587 35 48.7957 35 48V16C35 15.2044 34.6839 14.4413 34.1213 13.8787C33.5587 13.3161 32.7956 13 32 13ZM42 21C41.2043 21 40.4413 21.3161 39.8787 21.8787C39.3161 22.4413 39 23.2044 39 24V40C39 40.7957 39.3161 41.5587 39.8787 42.1213C40.4413 42.6839 41.2043 43 42 43C42.7957 43 43.5587 42.6839 44.1213 42.1213C44.6839 41.5587 45 40.7957 45 40V24C45 23.2044 44.6839 22.4413 44.1213 21.8787C43.5587 21.3161 42.7957 21 42 21ZM52 17C51.2043 17 50.4413 17.3161 49.8787 17.8787C49.3161 18.4413 49 19.2044 49 20V44C49 44.7957 49.3161 45.5587 49.8787 46.1213C50.4413 46.6839 51.2043 47 52 47C52.7957 47 53.5587 46.6839 54.1213 46.1213C54.6839 45.5587 55 44.7957 55 44V20C55 19.2044 54.6839 18.4413 54.1213 17.8787C53.5587 17.3161 52.7957 17 52 17Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 
 interface WelcomeViewProps {
   startButtonText: string;
   onStartCall: () => void;
+  micError?: string | null;
+  onDismissMicError?: () => void;
 }
 
 export const WelcomeView = ({
   startButtonText,
   onStartCall,
+  micError,
+  onDismissMicError,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [isPreloading, setIsPreloading] = useState(true);
+  const [isStarting, setIsStarting] = useState(false);
+  const [bootProgress, setBootProgress] = useState(0);
+
+  // Initial mini-preloader boot animation sequence
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBootProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setTimeout(() => setIsPreloading(false), 200);
+          return 100;
+        }
+        return prev + 25;
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStartClick = () => {
+    if (onDismissMicError) onDismissMicError();
+    setIsStarting(true);
+    onStartCall();
+    // Reset starting state after timeout if mic error or canceled
+    setTimeout(() => setIsStarting(false), 3500);
+  };
+
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
-        <WelcomeImage />
+    <motion.div
+      ref={ref}
+      animate={
+        micError
+          ? {
+              x: [-18, 18, -14, 14, -10, 10, -5, 5, 0],
+              rotate: [-1.2, 1.2, -0.8, 0.8, 0],
+            }
+          : { x: 0, rotate: 0 }
+      }
+      transition={{ duration: 0.45, ease: 'easeOut' }}
+      className="bg-[#080710] min-h-screen text-white font-mono flex flex-col justify-between relative overflow-hidden"
+    >
+      {/* Background Ambient Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#EC4899]/15 to-[#10B981]/15 blur-[120px] pointer-events-none rounded-full" />
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
-        </p>
+      {/* Mild Blur & Dimming Backdrop Overlay when Mic Error is Active */}
+      <AnimatePresence>
+        {micError && (
+          <motion.div
+            key="mic-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[9990] pointer-events-auto"
+            onClick={onDismissMicError}
+          />
+        )}
+      </AnimatePresence>
 
-        <Button
-          size="lg"
-          onClick={onStartCall}
-          className="mt-6 w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+      {/* Fixed Ultra-Minimal Top-Left Mic Banner (Top Layer z-[9999]) */}
+      <AnimatePresence>
+        {micError && (
+          <motion.div
+            key="mic-popover-top"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed top-4 left-4 sm:left-8 md:left-12 z-[9999] max-w-[calc(100vw-2rem)] sm:max-w-xs p-4 pl-5 bg-[#0c0a18] border-2 border-red-500/80 shadow-[6px_6px_0px_rgba(239,68,68,0.4)] backdrop-blur-2xl font-mono text-left flex flex-col gap-2.5"
+          >
+            <div className="flex items-center justify-between gap-1.5 text-[9px] font-bold text-red-400 uppercase tracking-widest border-b border-white/10 pb-1">
+              <div className="flex items-center gap-1">
+                <span className="animate-bounce">▲</span>
+                <span>[ UNBLOCK MIC ABOVE ]</span>
+              </div>
+              {onDismissMicError && (
+                <button
+                  onClick={onDismissMicError}
+                  className="text-zinc-400 hover:text-white px-1 text-xs"
+                  title="Dismiss warning"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <p className="text-[10px] text-zinc-200 leading-snug">
+              Click the site settings / mic icon at top-left of address bar ➔ select <strong className="text-white">Allow</strong>.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleStartClick}
+                className="flex-1 py-1.5 px-3 bg-[#10B981]/20 border border-[#10B981] text-[#10B981] text-[9px] font-bold uppercase tracking-wider hover:bg-[#10B981] hover:text-black transition-all flex items-center justify-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+              >
+                <span>RETRY ACCESS</span>
+                <span>[ ↻ ]</span>
+              </button>
+              {onDismissMicError && (
+                <button
+                  onClick={onDismissMicError}
+                  className="py-1.5 px-2 bg-white/10 border border-white/30 text-zinc-300 text-[9px] font-bold uppercase hover:bg-white/30 hover:text-white transition-all"
+                >
+                  DISMISS
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mini Preloader Screen */}
+      <AnimatePresence>
+        {isPreloading && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.4, ease: 'easeInOut' }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#080710] p-6"
+          >
+            <div className="max-w-xs w-full p-6 bg-[#0c0a18]/95 border-2 border-[#EC4899]/50 shadow-[6px_6px_0px_rgba(236,72,153,0.3)] flex flex-col gap-4">
+              <div className="flex items-center justify-between text-[10px] text-[#EC4899] tracking-widest uppercase border-b border-white/10 pb-2">
+                <span>[ BLUESKY // BOOT ]</span>
+                <span className="animate-pulse">SYS_INIT</span>
+              </div>
+
+              {/* Animated Frequency Audio Bars */}
+              <div className="flex items-center justify-center gap-1.5 h-10 py-1">
+                {[0.4, 0.9, 0.6, 1, 0.5, 0.8, 0.3].map((height, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ height: ['20%', `${height * 100}%`, '20%'] }}
+                    transition={{
+                      duration: 0.7,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                      ease: 'easeInOut',
+                    }}
+                    className="w-1.5 bg-[#EC4899] rounded-full shadow-[0_0_8px_#EC4899]"
+                  />
+                ))}
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-zinc-400">
+                  <span>LOADING RISHIKA_CORE</span>
+                  <span className="text-[#10B981] font-bold">{bootProgress}%</span>
+                </div>
+                {/* Progress bar */}
+                <div className="h-1.5 w-full bg-[#080710] border border-white/20 p-0.5 overflow-hidden">
+                  <motion.div
+                    className="h-full bg-[#EC4899] shadow-[0_0_8px_#EC4899]"
+                    initial={{ width: '0%' }}
+                    animate={{ width: `${bootProgress}%` }}
+                    transition={{ duration: 0.2 }}
+                  />
+                </div>
+              </div>
+
+              <div className="text-[9px] text-zinc-500 uppercase tracking-wider text-center">
+                MURF FALCON // DEEPGRAM NOVA-3 // GEMINI
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Landing View Content */}
+      <section className="flex flex-col items-center justify-center text-center px-6 min-h-screen py-12 z-10">
+        {/* BLUESKY Notebook Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: isPreloading ? 0 : 1, y: isPreloading ? 15 : 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="max-w-md w-full p-8 bg-[#0c0a18]/95 border-2 border-white/10 text-white flex flex-col justify-between shadow-[8px_8px_0px_rgba(236,72,153,0.3)] mb-8"
         >
-          {startButtonText}
-        </Button>
+          <div className="flex items-center justify-between text-[9px] text-zinc-500 uppercase tracking-widest text-left mb-4 font-mono">
+            <span>[ BLUESKY ROBOTICS VOICE_SYS ]</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[#10B981] font-bold border border-[#10B981]/50 px-2 py-0.5 bg-[#10B981]/15 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                STATE: READY
+              </span>
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-bold uppercase leading-none tracking-tight text-white mb-2 font-mono text-left">
+            RISHIKA // <br />
+            <span className="text-[#EC4899] drop-shadow-[0_0_8px_#EC4899]">LFR ASSISTANT</span>
+          </h1>
+
+          <div className="my-6 flex flex-col font-mono text-xl font-bold leading-tight tracking-tight uppercase text-left border-l-4 border-[#EC4899] pl-3">
+            <span className="text-zinc-400">SENSORS</span>
+            <span className="text-zinc-300">MOTORS</span>
+            <span className="text-zinc-200">CHASSIS</span>
+            <span className="text-[#EC4899] drop-shadow-[0_0_6px_#EC4899]">DEBUG</span>
+          </div>
+
+          <p className="text-[10px] text-zinc-400 text-left leading-relaxed font-mono">
+            Voice-powered LFR teaching assistant. Ask about IR sensors, motor drivers, PID tuning, and line follower debugging — in Hindi, English, or Hinglish.
+          </p>
+        </motion.div>
+
+        {/* Start Button with inline preloader state */}
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: isPreloading ? 0 : 1, y: isPreloading ? 10 : 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          onClick={handleStartClick}
+          disabled={isStarting}
+          className="group relative px-8 py-4 uppercase font-bold tracking-widest border-2 border-[#10B981] text-[#10B981] bg-[#10B981]/5 shadow-[6px_6px_0px_rgba(16,185,129,0.25)] hover:shadow-[8px_8px_0px_rgba(16,185,129,0.35)] transition-all duration-150 font-mono text-xs disabled:opacity-80 active:translate-x-[2px] active:translate-y-[2px]"
+        >
+          {isStarting ? (
+            <span className="flex items-center gap-2.5">
+              <span className="inline-block size-2 bg-[#10B981] animate-ping" />
+              <span>[ INITIALIZING MIC... ]</span>
+            </span>
+          ) : (
+            <span>{startButtonText}</span>
+          )}
+        </motion.button>
       </section>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
-            Voice AI quickstart
-          </a>
-          .
+      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center pointer-events-none z-10">
+        <p className="text-zinc-500 max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm font-mono">
+          Powered by Murf Falcon TTS — ultra-low latency voice AI
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 };
+

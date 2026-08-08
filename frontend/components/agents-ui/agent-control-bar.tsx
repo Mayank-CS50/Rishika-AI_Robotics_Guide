@@ -284,12 +284,14 @@ export function AgentControlBar({
     return null;
   }
 
+  const isChatActive = isChatOpen || isChatOpenUncontrolled;
+
   return (
     <div
       aria-label="Voice assistant controls"
       className={cn(
-        'bg-background border-input/50 dark:border-muted flex flex-col border p-3 drop-shadow-md/3',
-        variant === 'livekit' ? 'rounded-[31px]' : 'rounded-lg',
+        'bg-[#080710]/95 backdrop-blur-xl border-2 border-white/10 flex flex-col shadow-[0_4px_24px_rgba(0,0,0,0.75)] transition-all duration-300 ease-out',
+        isChatActive ? 'rounded-2xl p-3 gap-3' : 'rounded-full p-1.5 px-3',
         className
       )}
       {...props}
@@ -298,7 +300,7 @@ export function AgentControlBar({
         {...MOTION_PROPS}
         inert={!(isChatOpen || isChatOpenUncontrolled)}
         animate={isChatOpen || isChatOpenUncontrolled ? 'visible' : 'hidden'}
-        className="border-input/50 flex w-full items-start overflow-hidden border-b"
+        className="border-white/10 flex w-full items-start overflow-hidden border-b pb-2"
       >
         <AgentChatInput
           chatOpen={isChatOpen || isChatOpenUncontrolled}
@@ -307,25 +309,21 @@ export function AgentControlBar({
         />
       </motion.div>
 
-      <div className="flex gap-1">
-        <div className="flex grow gap-1">
-          {/* Toggle Microphone */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Toggle Microphone (No dropdown menu chevron) */}
           {visibleControls.microphone && (
-            <AgentTrackControl
+            <AgentTrackToggle
               variant={variant === 'outline' ? 'outline' : 'default'}
-              kind="audioinput"
+              source="microphone"
               aria-label="Toggle microphone"
-              source={Track.Source.Microphone}
               pressed={microphoneToggle.enabled}
+              pending={microphoneToggle.pending}
               disabled={microphoneToggle.pending}
-              audioTrack={microphoneTrack}
               onPressedChange={microphoneToggle.toggle}
-              onActiveDeviceChange={handleAudioDeviceChange}
-              onMediaDeviceError={handleMicrophoneDeviceSelectError}
               className={cn(
                 variant === 'livekit' && [
-                  LK_TOGGLE_VARIANT_1,
-                  'rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full',
+                  'rounded-full px-3 h-8 text-xs font-mono',
                 ]
               )}
             />

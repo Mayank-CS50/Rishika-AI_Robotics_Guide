@@ -42,6 +42,8 @@
     "lucide-react": "^0.555.0",
     "media-chrome": "^4.17.2",
     "mime": "^4.0.7",
+    "@gsap/react": "^2.1.1",
+    "gsap": "^3.12.7",
     "motion": "^12.16.0",
     "nanoid": "^5.1.6",
     "next": "15.5.9",

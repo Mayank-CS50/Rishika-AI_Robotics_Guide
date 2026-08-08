@@ -2,7 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, type MotionProps, motion } from 'motion/react';
-import { useAgent, useSessionContext, useSessionMessages } from '@livekit/components-react';
+import {
+  useAgent,
+  useLocalParticipant,
+  useSessionContext,
+  useSessionMessages,
+  useTrackVolume,
+} from '@livekit/components-react';
+import { Track } from 'livekit-client';
 import { AgentChatTranscript } from '@/components/agents-ui/agent-chat-transcript';
 import {
   AgentControlBar,
@@ -181,6 +188,15 @@ export function AgentSessionView_01({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { state: agentState } = useAgent();
 
+  // Significant speech volume detection for user mic glow (filtering out background noise)
+  const { localParticipant, isSpeaking: isUserSpeaking } = useLocalParticipant();
+  const micPublication = localParticipant?.getTrackPublication(Track.Source.Microphone);
+  const micVolume = useTrackVolume(micPublication?.track);
+
+  // Trigger right emerald glow ONLY on significant vocal speech (volume > 0.10)
+  const isSignificantUserSpeech =
+    agentState === 'listening' && (isUserSpeaking || micVolume > 0.12) && micVolume > 0.06;
+
   const controls: AgentControlBarControls = {
     leave: true,
     microphone: true,
@@ -205,19 +221,54 @@ export function AgentSessionView_01({
       {...props}
     >
       <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
-      {/* transcript */}
 
-      <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px]">
+      {/* High-Contrast Bright Side Glow Simulation Overlays */}
+      <AnimatePresence>
+        {/* User Speaking: Vibrant Emerald Green Glow on RIGHT SIDE (Only on significant speech) */}
+        {isSignificantUserSpeech && (
+          <motion.div
+            key="right-user-speaking-sim"
+            initial={{ opacity: 0, x: 50, scale: 0.85 }}
+            animate={{
+              opacity: [0.7, 1, 0.7],
+              x: 0,
+              scale: [0.98, 1.06, 0.98],
+            }}
+            exit={{ opacity: 0, x: 50, scale: 0.85 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="fixed right-0 top-1/2 -translate-y-1/2 w-56 md:w-96 h-[80vh] bg-gradient-to-l from-[#10B981]/90 via-[#10B981]/45 to-transparent blur-[60px] pointer-events-none z-20 rounded-l-full shadow-[0_0_80px_#10B981]"
+          />
+        )}
+
+        {/* Agent Speaking or Thinking: Vibrant Magenta Glow on LEFT SIDE */}
+        {(agentState === 'speaking' || agentState === 'thinking') && (
+          <motion.div
+            key="left-agent-speaking-sim"
+            initial={{ opacity: 0, x: -50, scale: 0.85 }}
+            animate={{
+              opacity: [0.7, 1, 0.7],
+              x: 0,
+              scale: [0.98, 1.06, 0.98],
+            }}
+            exit={{ opacity: 0, x: -50, scale: 0.85 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="fixed left-0 top-1/2 -translate-y-1/2 w-56 md:w-96 h-[80vh] bg-gradient-to-r from-[#EC4899]/90 via-[#EC4899]/45 to-transparent blur-[60px] pointer-events-none z-20 rounded-r-full shadow-[0_0_80px_#EC4899]"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* transcript */}
+      <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px] z-10">
         <AnimatePresence>
           {chatOpen && (
             <motion.div
               {...CHAT_MOTION_PROPS}
-              className="flex h-full w-full flex-col gap-4 space-y-3 transition-opacity duration-300 ease-out"
+              className="flex h-full w-full flex-col gap-4 transition-opacity duration-300 ease-out"
             >
               <AgentChatTranscript
                 agentState={agentState}
                 messages={messages}
-                className="mx-auto w-full max-w-2xl [&_.is-user>div]:rounded-[22px] [&>div>div]:px-4 [&>div>div]:pt-40 md:[&>div>div]:px-6"
+                className="mx-auto w-full max-w-3xl"
               />
             </motion.div>
           )}
@@ -257,8 +308,12 @@ export function AgentSessionView_01({
             )}
           </AnimatePresence>
         )}
-        <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
-          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
+        <div
+          className={cn(
+            'bg-transparent relative mx-auto transition-all duration-300 ease-out pb-4 md:pb-8',
+            chatOpen ? 'w-full max-w-lg' : 'max-w-xs md:max-w-sm'
+          )}
+        >
           <AgentControlBar
             variant="livekit"
             controls={controls}

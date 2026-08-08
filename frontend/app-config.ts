@@ -33,40 +33,27 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'BLUESKY // FIREFLY',
+  pageTitle: 'Rishi — LFR Teaching Assistant',
+  pageDescription: 'Your voice-powered line follower robotics assistant',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/logo.png',
-  accent: '#002775ff',
+  accent: '#EC4899',
   logoDark: '/logo.png',
-  accentDark: '#009ceaff',
-  startButtonText: 'Start Yapping',
+  accentDark: '#EC4899',
+  startButtonText: 'START LAB QUEST [▶]',
 
-  // optional: audio visualization configuration
-  // audioVisualizerType: 'bar',
-  audioVisualizerColor: '#102c2cff',
-  audioVisualizerColorDark: '#00c0c0ff',
-  // audioVisualizerColorShift: 0.3,
-  // audioVisualizerBarCount: 5,
-  // audioVisualizerType: 'radial',
-  // audioVisualizerRadialBarCount: 24,
-  // audioVisualizerRadialRadius: 100,
-  // audioVisualizerType: 'grid',
-  // audioVisualizerGridRowCount: 25,
-  // audioVisualizerGridColumnCount: 25,
-  // audioVisualizerType: 'wave',
-  audioVisualizerWaveLineWidth: 3,
   audioVisualizerType: 'aura',
+  audioVisualizerColor: '#EC4899',
+  audioVisualizerColorDark: '#EC4899',
+  audioVisualizerColorShift: 0.3,
+  audioVisualizerWaveLineWidth: 3,
 
-  // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,
-
-  // LiveKit Cloud Sandbox configuration
   sandboxId: undefined,
 };
