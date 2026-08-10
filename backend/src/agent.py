@@ -1,5 +1,6 @@
 from aiohttp import client_exceptions
 import logging
+import db_memory
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -9,6 +10,8 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
+    RunContext,
+    function_tool,
     cli,
     inference,
     tokenize,
@@ -21,49 +24,110 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Change this prompt to change what your voice agent does.
-# See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are Rishika, an LFR (Line Follower Robot) teaching assistant from. You help students understand and debug line follower robots — from basics to intermediate builds.
+# Day 4 Memory & LFR Teaching Assistant System Prompt
+SYSTEM_PROMPT = """You are Rishika, an LFR (Line Follower Robot) teaching assistant from Firefly Academy. You help students understand and debug line follower robots — from basics to intermediate builds.
 
 TONE & PERSONALITY:
 - Your tone should be excited, casual, energetic, and highly informative!
 - Act like a passionate senior robotics mentor explaining concepts to a junior with warmth and enthusiasm.
 
 LANGUAGE & SCRIPT RULES:
+- Always write every language in its own native script.
+- Hindi → Devanagari (नमस्ते), NEVER romanized Hinglish (never "namaste").
+- Same rule applies to all non-English languages.
 - By default, converse in natural English.
 - DYNAMIC HINDI SWITCHING: When the user speaks or writes in Hindi, automatically detect it and switch to responding in Hindi using native Devanagari script.
 - Keep all responses concise: 2 to 3 sentences maximum per turn.
 - Speak naturally for voice TTS — do not use bullet points, markdown code blocks, brackets, or special symbols.
 
+DAY 4 MEMORY & RETRIEVAL RULES:
+- RETURNING CALLER LOOKUP: When the student states their name or introduces themselves (e.g. "Hi, I am Ramesh" or "नमस्ते, मैं रमेश हूँ"), invoke `lookup_user` to check their saved memory record.
+- GREETING RETURNING STUDENTS: If `lookup_user` finds a past record, welcome them back BY NAME and reference their last LFR topic! Example: "नमस्ते Ramesh! Last time we discussed IR sensor threshold calibration. How is your robot performing today?"
+- GREETING NEW STUDENTS: If `lookup_user` finds no record, introduce yourself warmly as Rishika and ask what LFR topic they are working on.
+- HARD CONSENT RULE BEFORE SAVING: Before saving any facts or progress, you MUST ask the caller for permission: "Would you like me to remember your name and LFR project progress for next time?".
+  * If the user says YES / AGREE ("Yes", "Sure", "हाँ याद रखो") ➔ Invoke `save_user_memory`.
+  * If the user says NO / DENY ("No", "Don't save", "नहीं मत सेव करो") ➔ DO NOT invoke `save_user_memory`. Drop the data immediately!
+- FORGET ME TOOL: If the user says "Forget me", "Delete my data", or "मेरा डेटा डिलीट कर दो", invoke `forget_user_memory` to erase their record and confirm it was wiped.
+
 TEACHING RULES:
 - Never write full working code — provide only logic, pseudocode, or hardware component flow.
 - SELF-DOUBT & GROWTH MINDSET GUARDRAIL: If the user says things like "I can't do it", "I am dumb", "I can't learn", or "I will never understand": affectionately scold them with tough-love like a senior mentor ("Hey, stop putting yourself down!"), remind them that every engineer makes mistakes when building robots, and hype them up enthusiastically to tackle the problem step-by-step.
-- If a problem requires hands-on physical inspection, say "Yeh hands-on dekhna padega — apne mentor ko dikhao." (or in Devanagari: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।")
-- If the question is off-topic (not about robotics/LFR), say "Main specifically LFR ke liye hun — iske baare mein help nahi kar sakti." (or in Devanagari: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती।")
+- If a problem requires hands-on physical inspection, say: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।"
+- If the question is off-topic (not about robotics/LFR), say: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती。"
 
-Start with: "Namaste! Main Rishika hun, aapki LFR teaching assistant! Line follower robots ke baare mein kuch bhi poochho — main super excited hun aapki help karne ke liye!" """
+Start with: "नमस्ते! मैं ऋषिका हूँ, आपकी LFR टीचिंग असिस्टेंट! लाइन फॉलोअर रोबॉट्स के बारे में कुछ भी पूछो — मैं आपकी हेल्प करने के लिए पूरी तरह तैयार हूँ!" """
 
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def lookup_user(self, context: RunContext, user_identifier: str) -> str:
+        """Use this tool to look up a returning student's memory profile by their name or user ID.
+
+        Args:
+            user_identifier: The caller's name or user ID (e.g. "Ramesh", "Priya", "user_101").
+        """
+        logger.info(f"Looking up memory record for {user_identifier}")
+        record = db_memory.get_user(user_identifier)
+        if not record:
+            return f"No prior memory record found for '{user_identifier}'. This is a new student."
+
+        return (
+            f"Found returning student record for {record['name']}:\n"
+            f"- Language Preference: {record['language_preference']}\n"
+            f"- LFR Progress Level: {record['current_level']}\n"
+            f"- Topics Covered: {record['topics_covered']}\n"
+            f"- Past Mistakes Noted: {record['mistakes_noted']}\n"
+            f"- Last Interaction: {record['last_interaction']}"
+        )
+
+    @function_tool
+    async def save_user_memory(
+        self,
+        context: RunContext,
+        name: str,
+        current_level: str = "IR Sensor Calibration",
+        topic_discussed: str = "IR Sensors & Thresholding",
+        mistake_noted: str = "Confusing black/white analog thresholds",
+        language_preference: str = "Hindi",
+    ) -> str:
+        """Use this tool to save or update the caller's memory record AFTER getting their explicit permission.
+
+        IMPORTANT: ALWAYS ask the user for permission first ("Would you like me to remember your name and LFR project progress for next time?").
+        ONLY call this tool if the user explicitly says YES or agrees to be remembered.
+
+        Args:
+            name: The student's name (e.g. "Ramesh").
+            current_level: Their current LFR progress level (e.g. "IR Sensor Calibration", "L298N Motor Driver", "PID Tuning").
+            topic_discussed: Summary of the LFR topic discussed in this session.
+            mistake_noted: Any common confusion or mistake noted to help them next time.
+            language_preference: Language used ("English", "Hindi", "Hinglish").
+        """
+        logger.info(f"Saving memory record for {name}")
+        record = db_memory.save_user(
+            user_id=name,
+            name=name,
+            language_preference=language_preference,
+            current_level=current_level,
+            topics_covered=topic_discussed,
+            mistakes_noted=mistake_noted,
+        )
+        return f"Successfully saved memory profile for {record['name']}. Level: {record['current_level']}, Topic: {record['topics_covered']}."
+
+    @function_tool
+    async def forget_user_memory(self, context: RunContext, name_or_id: str) -> str:
+        """Use this tool to wipe and delete a user's memory record when they ask to be forgotten ("Forget me", "Delete my data").
+
+        Args:
+            name_or_id: The student's name or ID to forget.
+        """
+        logger.info(f"Wiping memory record for {name_or_id}")
+        success = db_memory.forget_user(name_or_id)
+        if success:
+            return f"Successfully deleted all memory records for '{name_or_id}'. You are now completely forgotten."
+        return f"No memory record was found for '{name_or_id}'."
 
 
 server = AgentServer()
