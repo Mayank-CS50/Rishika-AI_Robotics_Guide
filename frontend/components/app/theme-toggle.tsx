@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { MonitorIcon, MoonIcon, SunIcon } from '@phosphor-icons/react';
 import { cn } from '@/lib/shadcn/utils';
@@ -9,7 +10,12 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className }: ThemeToggleProps) {
+  const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div
@@ -25,7 +31,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           suppressHydrationWarning
           size={16}
           weight="bold"
-          className={cn(theme !== 'dark' && 'opacity-25')}
+          className={cn((!mounted || theme !== 'dark') && 'opacity-25')}
         />
       </button>
       <button
@@ -38,7 +44,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           suppressHydrationWarning
           size={16}
           weight="bold"
-          className={cn(theme !== 'light' && 'opacity-25')}
+          className={cn((!mounted || theme !== 'light') && 'opacity-25')}
         />
       </button>
       <button
@@ -51,7 +57,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           suppressHydrationWarning
           size={16}
           weight="bold"
-          className={cn(theme !== 'system' && 'opacity-25')}
+          className={cn((!mounted || theme !== 'system') && 'opacity-25')}
         />
       </button>
     </div>

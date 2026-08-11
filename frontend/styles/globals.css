@@ -137,3 +137,19 @@
     height: 0 !important;
   }
 }
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.scroll-fade-y {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 0%, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 0%, black 90%, transparent 100%);
+}
+
+
+

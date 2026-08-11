@@ -64,13 +64,14 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
       </head>
-      <body className="overflow-x-hidden">
+      <body className="overflow-x-hidden" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
+
           <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-end p-6 md:flex">
             <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
               Built with{' '}

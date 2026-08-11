@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 interface WelcomeViewProps {
+
   startButtonText: string;
   onStartCall: () => void;
   micError?: string | null;
@@ -20,6 +21,8 @@ export const WelcomeView = ({
   const [isPreloading, setIsPreloading] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
   const [bootProgress, setBootProgress] = useState(0);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
+
 
   // Initial mini-preloader boot animation sequence
   useEffect(() => {
@@ -48,6 +51,7 @@ export const WelcomeView = ({
   return (
     <motion.div
       ref={ref}
+      suppressHydrationWarning
       animate={
         micError
           ? {
@@ -184,60 +188,108 @@ export const WelcomeView = ({
         )}
       </AnimatePresence>
 
-      {/* Main Landing View Content */}
-      <section className="flex flex-col items-center justify-center text-center px-6 min-h-screen py-12 z-10">
-        {/* BLUESKY Notebook Card */}
+      {/* 50/50 Split-Screen Landing View */}
+      <section className="relative z-10 grid min-h-screen w-full grid-cols-1 items-center justify-center px-4 py-8 lg:grid-cols-2 lg:px-12 lg:py-0">
+        {/* LEFT COLUMN: Seamless Blended 3D Spline Interactive Viewport */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: isPreloading ? 0 : 1, y: isPreloading ? 15 : 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="max-w-md w-full p-8 bg-[#0c0a18]/95 border-2 border-white/10 text-white flex flex-col justify-between shadow-[8px_8px_0px_rgba(236,72,153,0.3)] mb-8"
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: isPreloading ? 0 : 1, x: isPreloading ? -30 : 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative flex h-[55vh] min-h-[420px] w-full items-center justify-center lg:h-[85vh] lg:min-h-[600px] overflow-hidden bg-transparent"
         >
-          <div className="flex items-center justify-between text-[9px] text-zinc-500 uppercase tracking-widest text-left mb-4 font-mono">
-            <span>[ BLUESKY ROBOTICS VOICE_SYS ]</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[#10B981] font-bold border border-[#10B981]/50 px-2 py-0.5 bg-[#10B981]/15 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                STATE: READY
-              </span>
+          {/* Soft ambient background glow sitting directly behind the 3D sphere */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] lg:w-[500px] lg:h-[500px] bg-gradient-to-tr from-[#EC4899]/30 via-[#A855F7]/20 to-[#10B981]/25 blur-[110px] pointer-events-none rounded-full" />
+
+          <div
+            className="relative h-full w-full overflow-hidden bg-transparent"
+            style={{
+              mixBlendMode: 'screen',
+              maskImage: 'radial-gradient(circle at center, black 65%, transparent 95%)',
+              WebkitMaskImage: 'radial-gradient(circle at center, black 65%, transparent 95%)',
+            }}
+          >
+            {/* Ambient Dark Viewport Fallback while Spline is compiling/loading */}
+            <div className={`absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-transparent transition-opacity duration-500 ${isIframeLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+              <motion.div
+                animate={{ rotate: 360, scale: [1, 1.1, 1] }}
+                transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+                className="mb-4 flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-[#EC4899]/40"
+              >
+                <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-[#EC4899] via-[#A855F7] to-[#10B981] opacity-70 blur-md" />
+              </motion.div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#EC4899] animate-pulse">
+                [ INITIALIZING 3D SPHERE... ]
+              </p>
             </div>
+
+            <iframe
+              src="https://my.spline.design/aivoiceassistant80s-OeZ98Tai824tpk1obfdAGu34/"
+              frameBorder="0"
+              width="100%"
+              height="100%"
+              onLoad={() => setIsIframeLoaded(true)}
+              style={{ background: 'transparent', backgroundColor: 'transparent' }}
+              className={`relative z-10 h-[calc(100%+70px)] w-[calc(100%+70px)] -mb-[70px] -mr-[70px] border-0 bg-transparent transition-opacity duration-700 ${isIframeLoaded ? 'opacity-100' : 'opacity-0'}`}
+              title="AI Voice Assistant 80s Spline 3D Scene"
+            />
           </div>
-
-          <h1 className="text-3xl font-bold uppercase leading-none tracking-tight text-white mb-2 font-mono text-left">
-            RISHIKA // <br />
-            <span className="text-[#EC4899] drop-shadow-[0_0_8px_#EC4899]">LFR ASSISTANT</span>
-          </h1>
-
-          <div className="my-6 flex flex-col font-mono text-xl font-bold leading-tight tracking-tight uppercase text-left border-l-4 border-[#EC4899] pl-3">
-            <span className="text-zinc-400">SENSORS</span>
-            <span className="text-zinc-300">MOTORS</span>
-            <span className="text-zinc-200">CHASSIS</span>
-            <span className="text-[#EC4899] drop-shadow-[0_0_6px_#EC4899]">DEBUG</span>
-          </div>
-
-          <p className="text-[10px] text-zinc-400 text-left leading-relaxed font-mono">
-            Voice-powered LFR teaching assistant. Ask about IR sensors, motor drivers, PID tuning, and line follower debugging — in Hindi, English, or Hinglish.
-          </p>
         </motion.div>
 
-        {/* Start Button with inline preloader state */}
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: isPreloading ? 0 : 1, y: isPreloading ? 10 : 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          onClick={handleStartClick}
-          disabled={isStarting}
-          className="group relative px-8 py-4 uppercase font-bold tracking-widest border-2 border-[#10B981] text-[#10B981] bg-[#10B981]/5 shadow-[6px_6px_0px_rgba(16,185,129,0.25)] hover:shadow-[8px_8px_0px_rgba(16,185,129,0.35)] transition-all duration-150 font-mono text-xs disabled:opacity-80 active:translate-x-[2px] active:translate-y-[2px]"
-        >
-          {isStarting ? (
-            <span className="flex items-center gap-2.5">
-              <span className="inline-block size-2 bg-[#10B981] animate-ping" />
-              <span>[ INITIALIZING MIC... ]</span>
-            </span>
-          ) : (
-            <span>{startButtonText}</span>
-          )}
-        </motion.button>
+
+        {/* RIGHT COLUMN: BLUESKY Content Card & Start Call Button */}
+        <div className="flex flex-col items-center justify-center p-4 text-center lg:items-start lg:p-12 lg:text-left">
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: isPreloading ? 0 : 1, x: isPreloading ? 30 : 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-6 flex w-full max-w-md flex-col justify-between border-2 border-white/10 bg-[#0c0a18]/95 p-8 text-white shadow-[8px_8px_0px_rgba(236,72,153,0.3)]"
+          >
+            <div className="mb-4 flex items-center justify-between font-mono text-[9px] uppercase tracking-widest text-zinc-500 text-left">
+              <span>[ BLUESKY ROBOTICS VOICE_SYS ]</span>
+              <div className="flex items-center gap-2">
+                <span className="border border-[#10B981]/50 bg-[#10B981]/15 px-2 py-0.5 font-bold text-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                  STATE: READY
+                </span>
+              </div>
+            </div>
+
+            <h1 className="mb-2 font-mono text-3xl font-bold uppercase leading-none tracking-tight text-white text-left">
+              RISHIKA // <br />
+              <span className="text-[#EC4899] drop-shadow-[0_0_8px_#EC4899]">LFR ASSISTANT</span>
+            </h1>
+
+            <div className="my-6 flex flex-col border-l-4 border-[#EC4899] pl-3 font-mono text-xl font-bold leading-tight tracking-tight uppercase text-left">
+              <span className="text-zinc-400">SENSORS</span>
+              <span className="text-zinc-300">MOTORS</span>
+              <span className="text-zinc-200">CHASSIS</span>
+              <span className="text-[#EC4899] drop-shadow-[0_0_6px_#EC4899]">DEBUG</span>
+            </div>
+
+            <p className="font-mono text-[10px] leading-relaxed text-zinc-400 text-left">
+              Voice-powered LFR teaching assistant. Ask about IR sensors, motor drivers, PID tuning, and line follower debugging — in Hindi, English, or Hinglish.
+            </p>
+          </motion.div>
+
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: isPreloading ? 0 : 1, y: isPreloading ? 10 : 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            onClick={handleStartClick}
+            disabled={isStarting}
+            className="group relative border-2 border-[#10B981] bg-[#10B981]/5 px-8 py-4 font-mono text-xs font-bold uppercase tracking-widest text-[#10B981] shadow-[6px_6px_0px_rgba(16,185,129,0.25)] transition-all duration-150 hover:shadow-[8px_8px_0px_rgba(16,185,129,0.35)] disabled:opacity-80 active:translate-x-[2px] active:translate-y-[2px]"
+          >
+            {isStarting ? (
+              <span className="flex items-center gap-2.5">
+                <span className="inline-block size-2 animate-ping bg-[#10B981]" />
+                <span>[ INITIALIZING MIC... ]</span>
+              </span>
+            ) : (
+              <span>{startButtonText}</span>
+            )}
+          </motion.button>
+        </div>
       </section>
+
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center pointer-events-none z-10">
         <p className="text-zinc-500 max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm font-mono">

@@ -138,7 +138,7 @@ export function TileLayout({
                   <AudioVisualizer
                     key="audio-visualizer"
                     initial={{ scale: 1 }}
-                    animate={{ scale: chatOpen ? 0.2 : 1 }}
+                    animate={{ scale: 1 }}
                     transition={{
                       ...ANIMATION_TRANSITION,
                       delay: animationDelay,

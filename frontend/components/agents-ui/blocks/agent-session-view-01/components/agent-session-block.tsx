@@ -15,6 +15,7 @@ import {
   AgentControlBar,
   type AgentControlBarControls,
 } from '@/components/agents-ui/agent-control-bar';
+import { ToolDataCard } from '@/components/agents-ui/tool-data-card';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { cn } from '@/lib/shadcn/utils';
 import { TileLayout } from './tile-view';
@@ -220,6 +221,7 @@ export function AgentSessionView_01({
       className={cn('bg-background relative z-10 h-full w-full overflow-hidden', className)}
       {...props}
     >
+      <ToolDataCard />
       <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
 
       {/* High-Contrast Bright Side Glow Simulation Overlays */}
@@ -257,23 +259,24 @@ export function AgentSessionView_01({
         )}
       </AnimatePresence>
 
-      {/* transcript */}
-      <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px] z-10">
+      {/* transcript container overlaid on background visualizer */}
+      <div className="absolute inset-x-0 top-6 bottom-[135px] flex w-full flex-col items-center justify-center px-4 md:bottom-[170px] z-20 pointer-events-none">
         <AnimatePresence>
           {chatOpen && (
             <motion.div
               {...CHAT_MOTION_PROPS}
-              className="flex h-full w-full flex-col gap-4 transition-opacity duration-300 ease-out"
+              className="glass-card pointer-events-auto flex h-full w-full max-w-3xl flex-col gap-4 p-4 md:p-6 rounded-3xl transition-all duration-300 ease-out shadow-2xl"
             >
               <AgentChatTranscript
                 agentState={agentState}
                 messages={messages}
-                className="mx-auto w-full max-w-3xl"
+                className="mx-auto w-full h-full"
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
       {/* Tile layout */}
       <TileLayout
         chatOpen={chatOpen}

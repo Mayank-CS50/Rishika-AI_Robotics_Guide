@@ -15,6 +15,8 @@ const MotionConnectingView = motion.create(ConnectingView);
 const MotionSessionView = motion.create(AgentSessionView_01);
 const MotionEndedView = motion.create(EndedView);
 
+
+
 const VIEW_MOTION_PROPS = {
   variants: {
     visible: { opacity: 1, scale: 1, filter: 'blur(0px)' },
@@ -86,7 +88,8 @@ export function ViewController({ appConfig }: ViewControllerProps) {
 
   return (
     <AnimatePresence mode="wait">
-      {/* Welcome */}
+      {/* Landing Page: Default WelcomeView */}
+
       {!isConnected && !isEnded && (
         <MotionWelcomeView
           key="welcome"
@@ -105,6 +108,8 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           {...VIEW_MOTION_PROPS}
         />
       )}
+
+
 
       {/* Live session */}
       {isAgentReady && (

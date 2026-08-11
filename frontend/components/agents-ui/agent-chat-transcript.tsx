@@ -10,6 +10,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import { MessageContent, MessageResponse } from '@/components/ai-elements/message';
+import { Shimmer } from '@/components/ai-elements/shimmer';
 import { cn } from '@/lib/shadcn/utils';
 
 export interface AgentChatTranscriptProps extends ComponentProps<'div'> {
@@ -25,7 +26,8 @@ export function AgentChatTranscript({
   ...props
 }: AgentChatTranscriptProps) {
   return (
-    <Conversation className={cn('w-full font-mono', className)} {...props}>
+    <Conversation className={cn('w-full font-mono scroll-fade-y', className)} {...props}>
+
       <ConversationContent className="gap-4 px-4 pt-32 pb-6 md:px-8">
         {messages.map((receivedMessage, idx) => {
           const { id, timestamp, from, message } = receivedMessage;
@@ -87,19 +89,19 @@ export function AgentChatTranscript({
           );
         })}
 
-        {/* Thinking State Crystal Indicator */}
+        {/* Thinking / Tool Execution State Shimmer Indicator */}
         <AnimatePresence>
-          {agentState === 'thinking' && (
+          {(agentState === 'thinking' || agentState === 'initializing') && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-3 p-3 border-2 border-[#EC4899]/40 bg-[#080710]/90 backdrop-blur-xl w-fit shadow-[3px_3px_0px_0px_#EC4899]"
+              className="flex items-center gap-3 p-3 border border-[#EC4899]/50 bg-[#080710]/90 backdrop-blur-xl rounded-xl w-fit shadow-[0_0_20px_rgba(236,72,153,0.2)]"
             >
               <AgentChatIndicator size="sm" className="bg-[#EC4899]" />
-              <span className="text-xs font-mono tracking-widest text-[#EC4899] uppercase animate-pulse">
-                [ RISHIKA IS THINKING... ]
-              </span>
+              <Shimmer duration={1.5} className="text-xs font-mono tracking-widest text-[#EC4899] uppercase font-bold">
+                {agentState === 'thinking' ? '[ RISHIKA IS PROCESSING & FETCHING RESOURCES... ]' : '[ INITIALIZING VOICE PIPELINE... ]'}
+              </Shimmer>
             </motion.div>
           )}
         </AnimatePresence>

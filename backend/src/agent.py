@@ -1,6 +1,8 @@
 from aiohttp import client_exceptions
 import logging
 import db_memory
+import static_intents
+import educational_tools
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -24,7 +26,7 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Day 4 Memory & LFR Teaching Assistant System Prompt
+# Day 4 Memory & LFR Teaching Assistant System Prompt (Slimmed & Optimized)
 SYSTEM_PROMPT = """You are Rishika, an LFR (Line Follower Robot) teaching assistant from Firefly Academy. You help students understand and debug line follower robots — from basics to intermediate builds.
 
 TONE & PERSONALITY:
@@ -53,9 +55,7 @@ TEACHING RULES:
 - Never write full working code — provide only logic, pseudocode, or hardware component flow.
 - SELF-DOUBT & GROWTH MINDSET GUARDRAIL: If the user says things like "I can't do it", "I am dumb", "I can't learn", or "I will never understand": affectionately scold them with tough-love like a senior mentor ("Hey, stop putting yourself down!"), remind them that every engineer makes mistakes when building robots, and hype them up enthusiastically to tackle the problem step-by-step.
 - If a problem requires hands-on physical inspection, say: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।"
-- If the question is off-topic (not about robotics/LFR), say: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती。"
-
-Start with: "नमस्ते! मैं ऋषिका हूँ, आपकी LFR टीचिंग असिस्टेंट! लाइन फॉलोअर रोबॉट्स के बारे में कुछ भी पूछो — मैं आपकी हेल्प करने के लिए पूरी तरह तैयार हूँ!" """
+- If the question is off-topic (not about robotics/LFR), say: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती।" """
 
 
 class Assistant(Agent):
@@ -69,7 +69,13 @@ class Assistant(Agent):
         Args:
             user_identifier: The caller's name or user ID (e.g. "Ramesh", "Priya", "user_101").
         """
-        logger.info(f"Looking up memory record for {user_identifier}")
+        logger.info(f"Looking up memory record for {user_identifier}.")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.LOOKUP_USER_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
         record = db_memory.get_user(user_identifier)
         if not record:
             return f"No prior memory record found for '{user_identifier}'. This is a new student."
@@ -105,7 +111,13 @@ class Assistant(Agent):
             mistake_noted: Any common confusion or mistake noted to help them next time.
             language_preference: Language used ("English", "Hindi", "Hinglish").
         """
-        logger.info(f"Saving memory record for {name}")
+        logger.info(f"Saving memory record for {name}.")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.SAVE_USER_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
         record = db_memory.save_user(
             user_id=name,
             name=name,
@@ -123,11 +135,64 @@ class Assistant(Agent):
         Args:
             name_or_id: The student's name or ID to forget.
         """
-        logger.info(f"Wiping memory record for {name_or_id}")
+        logger.info(f"Wiping memory record for {name_or_id}.")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.FORGET_USER_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
         success = db_memory.forget_user(name_or_id)
         if success:
             return f"Successfully deleted all memory records for '{name_or_id}'. You are now completely forgotten."
         return f"No memory record was found for '{name_or_id}'."
+
+    @function_tool
+    async def lookup_word_definition(self, context: RunContext, word: str) -> str:
+        """Look up the definition, part of speech, and usage example of an English word for literacy teaching. Call this when a student asks 'What does X mean?', 'Define X', or 'Explain the term X'.
+
+        Args:
+            word: The word or technical term to look up in the dictionary.
+        """
+        logger.info(f"Looking up dictionary definition for '{word}'.")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.DICTIONARY_LOOKUP_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
+        room = getattr(context, "room", None)
+        return await educational_tools.fetch_word_definition(word, room=room)
+
+    @function_tool
+    async def fetch_educational_quiz(self, context: RunContext, topic: str = "") -> str:
+        """Fetch an educational trivia quiz question about Science, Computers, or Robotics. Call this when the student asks for a quiz, question, or knowledge test. If the student has a known LFR progress level or topic from past memory, pass it as the topic parameter.
+
+        Args:
+            topic: Optional robotics topic or student level (e.g. "IR Sensors", "L298N Motor Driver", "PID Tuning").
+        """
+        logger.info(f"Fetching educational quiz question for topic '{topic}'.")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.QUIZ_FETCH_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
+        room = getattr(context, "room", None)
+        return await educational_tools.fetch_quiz_question(topic=topic, room=room)
+
+    @function_tool
+    async def score_spoken_answer(self, context: RunContext, user_answer: str, question_or_topic: str = "") -> str:
+        """Evaluate and rate the student's answer or technical question for accuracy and correctness. Call this when the student answers a quiz question or attempts to explain a robotics concept.
+
+        Args:
+            user_answer: The student's spoken or written answer/explanation.
+            question_or_topic: Optional question or topic being answered.
+        """
+        logger.info(f"Scoring student answer: '{user_answer}'")
+        room = getattr(context, "room", None)
+        return await educational_tools.evaluate_answer_score(user_answer, question_or_topic, room=room)
+
 
 
 server = AgentServer()
@@ -209,8 +274,19 @@ async def my_agent(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
+    @session.on("user_speech_committed")
+    def _on_user_speech(ev):
+        text = getattr(ev, "content", None) or getattr(ev, "text", None) or ""
+        if isinstance(text, str) and text.strip():
+            matched = static_intents.match_static_intent(text)
+            if matched:
+                logger.info(f"Static intent interceptor matched: '{text}' -> {matched.intent_type}")
+                import asyncio
+                asyncio.create_task(session.say(matched.text))
+
     # Join the room and connect to the user
     await ctx.connect()
+
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(

@@ -67,6 +67,20 @@ uv run python src/agent.py console
 uv run python src/agent.py start
 ```
 
+## Day 5 — Tools & Live Data Sources
+
+Rishika (LFR Teaching Assistant) uses non-blocking async tools with instant pre-execution audio fillers and out-loud graceful fallbacks:
+
+1. **Live Dictionary Lookup (`lookup_word_definition`)**:
+   - **Primary Data Source**: Live Free Dictionary API (`https://api.dictionaryapi.dev/api/v2/entries/en/{word}`).
+   - **Audio Filler**: *"Ek second, main dictionary check kar rahi hun..."*
+   - **Graceful Fallback**: Spoken out-loud notice explaining live server timeout, switching to general knowledge.
+
+2. **Robotics & Science Quiz Engine (`fetch_educational_quiz`)**:
+   - **Primary Data Source**: Live Open Trivia DB (`https://opentdb.com/api.php?amount=1&category=18&type=multiple`).
+   - **Fallback Data Source**: Hand-crafted local Python dataset (`LOCAL_FALLBACK_QUIZ` in `src/educational_tools.py`) covering IR sensors, L298N drivers, and Arduino loops.
+   - **Audio Filler**: *"Theek hai, main robotics quiz ka sawal nikal rahi hun..."*
+
 ## Configuration
 
 All configuration lives in [`src/agent.py`](src/agent.py).
