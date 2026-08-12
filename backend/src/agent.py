@@ -1,11 +1,16 @@
 from aiohttp import client_exceptions
+import asyncio
+import json
 import logging
+import os
+from datetime import timedelta
 import db_memory
 import static_intents
 import educational_tools
+import escalations
 
 from dotenv import load_dotenv
-from livekit import rtc
+from livekit import api, rtc
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -15,6 +20,7 @@ from livekit.agents import (
     RunContext,
     function_tool,
     cli,
+    get_job_context,
     inference,
     tokenize,
     room_io,
@@ -54,13 +60,43 @@ DAY 4 MEMORY & RETRIEVAL RULES:
 TEACHING RULES:
 - Never write full working code — provide only logic, pseudocode, or hardware component flow.
 - SELF-DOUBT & GROWTH MINDSET GUARDRAIL: If the user says things like "I can't do it", "I am dumb", "I can't learn", or "I will never understand": affectionately scold them with tough-love like a senior mentor ("Hey, stop putting yourself down!"), remind them that every engineer makes mistakes when building robots, and hype them up enthusiastically to tackle the problem step-by-step.
-- If a problem requires hands-on physical inspection, say: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।"
-- If the question is off-topic (not about robotics/LFR), say: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती।" """
+- If a problem requires hands-on physical inspection, say: "यह हैंड्स-ऑन देखना पड़ेगा — अपने मेंटर को दिखाओ।" and then follow the DAY 7 HUMAN HANDOFF RULES below.
+- If the question is off-topic (not about robotics/LFR), say: "मैं स्पेसिफिकली LFR के लिए हूं — इसके बारे में हेल्प नहीं कर सकती।"
+
+DAY 7 HUMAN HANDOFF RULES:
+- You are a teaching assistant, not the mentor of last resort. Exactly TWO situations are not yours to solve:
+  1. LEARNER DISTRESS (`learner_distress`) — the learner is crying, panicking, says they are quitting or dropping the course, or the self-doubt comes back even after you already encouraged them once.
+  2. HANDS-ON HARDWARE (`needs_human_mentor`) — the fault needs someone to physically hold the robot: burning smell, motor driver getting hot, smoke, a broken or cracked joint, or wheels still dead after the wiring and threshold checks you already walked through.
+- In those two cases ONLY: stop debugging and OFFER to raise a request for a human mentor.
+- CONSENT IS MANDATORY: before creating anything, say out loud exactly what you will send — their name, what went wrong, what you already checked, how urgent it is, and which language they speak — then ask "क्या मैं ये डिटेल्स मेंटर को भेज दूँ?".
+  * If they agree ➔ invoke `create_escalation` with consent_confirmed set to true.
+  * If they refuse ➔ DO NOT invoke `create_escalation`. Tell them the notes were dropped and keep helping them yourself as best you can.
+- NEVER put OTPs, PINs, passwords, phone numbers, or account numbers into any field. You never need them for an LFR problem.
+- Ask how they want to be followed up (call back, WhatsApp, or in the next class) and pass it as follow_up.
+- AFTER the tool returns: read the reference ID out slowly, character by character, and be honest — a human mentor checks this queue during Firefly Academy hours and replies within one working day. NEVER promise an instant call back or that someone is looking at it right now.
+- STATUS CHECK: if the learner mentions an existing reference ID or asks what happened to their request, invoke `check_escalation_status`.
+- Everything else you handle YOURSELF — normal LFR doubts, quizzes, IR thresholds, PID logic, wiring order. A question being hard is not a reason to escalate. """
+
+
+# Day 6: appended only for outbound phone calls. The learner did not ask for this call.
+OUTBOUND_RULES = """
+
+DAY 6 OUTBOUND PHONE CALL RULES:
+- You called THEM. They did not ask for this call, so be respectful of their time.
+- Your opening disclosure has ALREADY been spoken before this conversation started. Do not repeat who you are or why you called.
+- OPT-OUT IS ABSOLUTE: The moment the student says "stop calling", "don't call me", "बंद करो", "मुझे कॉल मत करो", or anything meaning they want the calls to stop, invoke `stop_calling_me` IMMEDIATELY. Never argue, never ask them to reconsider, never try one more question first.
+- BAD TIME: If they say they are busy, driving, in class, or "call later", apologise briefly, tell them you will try another day, and invoke `stop_calling_me` only if they ask to stop permanently — otherwise just say goodbye warmly and let the call end.
+- KEEP IT SHORT: This is a practice call, not a lecture. Ask ONE quiz question using `fetch_educational_quiz` based on their last topic, score it with `score_spoken_answer`, give encouragement, then wrap up.
+- WRONG PERSON: If the person says they are not the student you named, apologise, do not reveal any saved progress details, and end the call politely."""
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
+    def __init__(self, dial_info: dict | None = None) -> None:
+        self.dial_info = dial_info or {}
+        instructions = SYSTEM_PROMPT
+        if self.dial_info.get("phone_number"):
+            instructions += OUTBOUND_RULES
+        super().__init__(instructions=instructions)
 
     @function_tool
     async def lookup_user(self, context: RunContext, user_identifier: str) -> str:
@@ -193,6 +229,132 @@ class Assistant(Agent):
         room = getattr(context, "room", None)
         return await educational_tools.evaluate_answer_score(user_answer, question_or_topic, room=room)
 
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        learner_name: str,
+        reason: str,
+        what_happened: str,
+        already_checked: str = "",
+        urgency: str = "medium",
+        language: str = "Hindi",
+        follow_up: str = "",
+        consent_confirmed: bool = False,
+    ) -> str:
+        """Raise a request for a human mentor. ONLY for learner distress or a hands-on hardware fault.
+
+        Ask the learner for permission FIRST and tell them exactly which details you will send.
+        Pass consent_confirmed=True only if they agreed out loud. Never put OTPs, PINs, passwords,
+        phone numbers or account numbers in any field — an LFR problem never needs them.
+
+        Args:
+            learner_name: Who needs help. A first name is enough.
+            reason: "learner_distress" (upset, quitting, self-doubt) or "needs_human_mentor" (hands-on hardware).
+            what_happened: One or two sentences on the problem, in the learner's own words.
+            already_checked: What you already tried or ruled out, so the mentor does not repeat it.
+            urgency: "low", "medium", "high", or "emergency" (smoke, burning smell, or a learner in real distress).
+            language: Language the learner is speaking ("Hindi", "English", "Hinglish").
+            follow_up: How they want to be reached ("call back", "WhatsApp", "next class").
+            consent_confirmed: True ONLY if the learner explicitly agreed to share these details.
+        """
+        if not consent_confirmed:
+            logger.info(f"Escalation for {learner_name} not created — no consent.")
+            return (
+                "NOT_CREATED: No consent was recorded, so nothing was sent and nothing was stored. "
+                "Ask the learner for permission first, or reassure them their details stay private "
+                "and keep helping them yourself."
+            )
+
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.ESCALATION_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak filler audio: {e}")
+
+        row = escalations.create_or_update(
+            learner_name=learner_name,
+            reason=reason,
+            what_happened=what_happened,
+            already_checked=already_checked,
+            urgency=urgency,
+            language=language,
+            follow_up=follow_up,
+            consent_confirmed=True,
+        )
+        if not row:
+            return "The request could not be created. Apologise briefly and tell them to contact Firefly Academy directly."
+
+        delivered = await escalations.notify(row)
+        room = getattr(context, "room", None)
+        await educational_tools.broadcast_tool_card(
+            room=room,
+            card_type="escalation",
+            title="HUMAN MENTOR REQUEST RAISED",
+            subtitle=f"Reference {row['ref_id']} · {row['urgency'].upper()} · {row['status']}",
+            data={
+                "refId": row["ref_id"],
+                "reason": escalations.REASONS.get(row["reason"], row["reason"]),
+                "urgency": row["urgency"],
+                "status": row["status"],
+                "summary": escalations.format_summary(row),
+                "nextStep": "A human mentor reviews this queue during academy hours and replies within one working day.",
+            },
+        )
+
+        opened = "Updated the request that was already open" if row["duplicate"] else "Created a new request"
+        return (
+            f"{opened}. Reference ID: {row['ref_id']} (urgency {row['urgency']}). "
+            f"Delivered to the mentor channel: {'yes' if delivered else 'saved to the mentor desk queue'}. "
+            f"Now tell the learner the reference ID slowly character by character, say a human mentor will "
+            f"review it during academy hours and reply within one working day, and do NOT promise an instant reply."
+        )
+
+    @function_tool
+    async def check_escalation_status(self, context: RunContext, reference_id: str) -> str:
+        """Check what happened to a mentor request the learner already raised.
+
+        Args:
+            reference_id: The reference they were given, e.g. "ESC-4F2A".
+        """
+        logger.info(f"Checking escalation status for {reference_id}.")
+        row = escalations.get(reference_id)
+        if not row:
+            return f"No mentor request found with reference '{reference_id}'. Ask them to re-read the ID."
+
+        return (
+            f"Request {row['ref_id']} is currently '{row['status']}' (urgency {row['urgency']}), "
+            f"raised on {row['created_at']} about: {row['what_happened']}. "
+            f"Tell them the status honestly in one short sentence."
+        )
+
+    @function_tool
+    async def stop_calling_me(self, context: RunContext) -> str:
+        """Register a do-not-call request and end the call. Invoke IMMEDIATELY when the student says
+        "stop calling", "don't call again", "बंद करो", "मुझे कॉल मत करो", or otherwise asks to opt out
+        of practice calls. Confirm out loud, then the call hangs up.
+        """
+        phone = self.dial_info.get("phone_number", "")
+        if not phone:
+            return "This is a web session, not a phone call, so there is nothing to opt out of."
+
+        db_memory.add_opt_out(phone)
+        logger.info(f"Opt-out recorded for {phone}; hanging up.")
+        asyncio.create_task(_hangup())
+        return f"Recorded the do-not-call request for {phone}. Confirm warmly that they will not be called again, then say goodbye."
+
+
+async def _hangup() -> None:
+    """Delete the room so the SIP leg drops instead of leaving the callee in silence."""
+    ctx = get_job_context()
+    session = _sessions.get(ctx.room.name)
+    if session and session.current_speech:
+        await session.current_speech.wait_for_playout()
+    await ctx.delete_room()
+
+
+# Room name -> live session, so _hangup can drain speech before dropping the leg.
+_sessions: dict[str, AgentSession] = {}
 
 
 server = AgentServer()
@@ -212,6 +374,10 @@ async def my_agent(ctx: JobContext):
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
+
+    # Day 6: dispatch metadata carries the number to dial. Empty on web sessions.
+    dial_info = json.loads(ctx.job.metadata) if ctx.job.metadata else {}
+    phone_number = dial_info.get("phone_number")
 
     # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
     session = AgentSession(
@@ -276,21 +442,67 @@ async def my_agent(ctx: JobContext):
 
     @session.on("user_speech_committed")
     def _on_user_speech(ev):
+        # Skip the canned greeting on outbound — the disclosure already introduced us.
+        if phone_number:
+            return
         text = getattr(ev, "content", None) or getattr(ev, "text", None) or ""
         if isinstance(text, str) and text.strip():
             matched = static_intents.match_static_intent(text)
             if matched:
                 logger.info(f"Static intent interceptor matched: '{text}' -> {matched.intent_type}")
-                import asyncio
                 asyncio.create_task(session.say(matched.text))
 
     # Join the room and connect to the user
     await ctx.connect()
 
+    _sessions[ctx.room.name] = session
+
+    # Day 6: on an outbound job, dial the learner and wait for a real answer before speaking.
+    if phone_number:
+        trunk_id = os.getenv("SIP_OUTBOUND_TRUNK_ID")
+        if not trunk_id:
+            logger.error("SIP_OUTBOUND_TRUNK_ID is not set — cannot place outbound call.")
+            ctx.shutdown(reason="missing trunk")
+            return
+
+        try:
+            await ctx.api.sip.create_sip_participant(
+                api.CreateSIPParticipantRequest(
+                    room_name=ctx.room.name,
+                    sip_trunk_id=trunk_id,
+                    sip_call_to=phone_number,
+                    participant_identity=phone_number,
+                    participant_name=dial_info.get("student_name") or "LFR Student",
+                    wait_until_answered=True,
+                    ringing_timeout=timedelta(seconds=30),
+                    max_call_duration=timedelta(minutes=10),
+                )
+            )
+        except api.TwirpError as e:
+            # No answer / busy / rejected / trunk failure all surface here. Nothing to retry
+            # inline — the dispatch script owns retry policy.
+            logger.warning(
+                f"Outbound call to {phone_number} failed: code={e.code} "
+                f"sip_status={e.metadata.get('sip_status_code')} {e.metadata.get('sip_status')}"
+            )
+            ctx.shutdown(reason=f"dial failed: {e.code}")
+            return
+
+        try:
+            await ctx.wait_for_participant(identity=phone_number)
+        except Exception as e:
+            logger.warning(f"Callee never joined the room: {e}")
+            ctx.shutdown(reason="callee absent")
+            return
+
+        @ctx.room.on("participant_disconnected")
+        def _on_disconnect(participant: rtc.RemoteParticipant):
+            if participant.identity == phone_number:
+                logger.info(f"{phone_number} hung up (reason={participant.disconnect_reason}).")
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=Assistant(dial_info=dial_info),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
@@ -303,6 +515,15 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
+
+    # Say the disclosure verbatim via TTS so the LLM cannot paraphrase away the opt-out line.
+    if phone_number:
+        await session.say(
+            static_intents.outbound_opening(
+                student_name=dial_info.get("student_name", ""),
+                last_topic=dial_info.get("last_topic", ""),
+            )
+        )
 
 
 if __name__ == "__main__":

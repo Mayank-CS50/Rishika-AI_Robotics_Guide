@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useChat, useRoomContext } from '@livekit/components-react';
 import { RoomEvent } from 'livekit-client';
-import { Award, BookOpen, CheckCircle, HelpCircle, X, XCircle } from 'lucide-react';
+import { Award, BookOpen, CheckCircle, HelpCircle, LifeBuoy, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface ToolCardData {
   type: string;
-  cardType: 'dictionary' | 'quiz' | 'score';
+  cardType: 'dictionary' | 'quiz' | 'score' | 'escalation';
   title: string;
   subtitle: string;
   data: {
@@ -23,6 +23,12 @@ export interface ToolCardData {
     rating?: string;
     userAnswer?: string;
     feedback?: string;
+    refId?: string;
+    reason?: string;
+    urgency?: string;
+    status?: string;
+    summary?: string;
+    nextStep?: string;
   };
 }
 
@@ -90,6 +96,7 @@ export function ToolDataCard() {
             {cardType === 'dictionary' && <BookOpen className="size-4 text-[#10B981]" />}
             {cardType === 'quiz' && <HelpCircle className="size-4 text-[#EC4899]" />}
             {cardType === 'score' && <Award className="size-4 text-[#F59E0B]" />}
+            {cardType === 'escalation' && <LifeBuoy className="size-4 text-red-400" />}
             <span className="text-[10px] font-bold tracking-widest text-[#EC4899] uppercase">
               {title}
             </span>
@@ -133,6 +140,28 @@ export function ToolDataCard() {
             {data.feedback && (
               <p className="text-zinc-300 text-[11px] font-sans leading-relaxed">
                 {data.feedback}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Day 7 Human Mentor Handoff Card Body */}
+        {cardType === 'escalation' && (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-xl bg-red-500/10 border border-red-500/40">
+              <span className="text-sm font-bold tracking-widest text-red-300">{data.refId}</span>
+              <span className="text-[10px] font-bold text-red-400 uppercase">
+                {data.urgency} · {data.status}
+              </span>
+            </div>
+            {data.summary && (
+              <pre className="text-[10px] leading-relaxed text-zinc-300 whitespace-pre-wrap font-mono">
+                {data.summary}
+              </pre>
+            )}
+            {data.nextStep && (
+              <p className="text-[10px] text-zinc-400 font-sans border-t border-white/10 pt-2">
+                {data.nextStep}
               </p>
             )}
           </div>

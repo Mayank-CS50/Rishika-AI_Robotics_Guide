@@ -35,6 +35,26 @@ SAVE_USER_FILLER = "ठीक है, मैं आपकी प्रोग्�
 FORGET_USER_FILLER = "एक मिनट, मैं आपका डेटा डिलीट कर रही हूँ..."
 DICTIONARY_LOOKUP_FILLER = "एक सेकंड, मैं डिक्शनरी में शब्द की परिभाषा चेक कर रही हूँ..."
 QUIZ_FETCH_FILLER = "ठीक है, मैं आपके लिए साइंस और रोबोटिक्स क्विज़ का सवाल निकाल रही हूँ..."
+ESCALATION_FILLER = "ठीक है, मैं आपकी रिक्वेस्ट मेंटर के लिए तैयार कर रही हूँ..."
+
+
+def outbound_opening(student_name: str = "", last_topic: str = "") -> str:
+    """Day 6 opening script. First two sentences must say who is calling, why, and how to stop.
+
+    Spoken via session.say() rather than the LLM so the disclosure is never paraphrased away.
+    """
+    greeting = f"नमस्ते {student_name}!" if student_name else "नमस्ते!"
+    why = (
+        f"पिछली बार हमने {last_topic} पर बात की थी, तो आज उसकी प्रैक्टिस करवाने के लिए कॉल किया है।"
+        if last_topic
+        else "आपकी लाइन फॉलोअर रोबोट की डेली प्रैक्टिस के लिए कॉल किया है।"
+    )
+    return (
+        f"{greeting} मैं ऋषिका बोल रही हूँ, Firefly Academy से — आपकी LFR टीचिंग असिस्टेंट। "
+        f"{why} "
+        "अगर आप आगे ये कॉल्स नहीं चाहते, तो बस कह दीजिए 'स्टॉप कॉलिंग' और मैं आपका नंबर हमेशा के लिए हटा दूँगी। "
+        "तो बताइए, आज प्रैक्टिस करने का टाइम है?"
+    )
 
 
 def match_static_intent(transcript: str) -> Optional[StaticResponse]:

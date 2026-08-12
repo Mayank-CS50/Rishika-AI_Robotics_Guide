@@ -92,7 +92,8 @@ async def fetch_word_definition(word: str, room=None) -> str:
             f"and explain '{clean_word}' using your existing general knowledge."
         )
 
-    return f"I couldn't retrieve information for '{clean_word}' right now."
+    # 200 with an unexpected shape, or any other status. Same student-facing outcome as 404.
+    return f"I couldn't find the definition for '{clean_word}' in the live dictionary. Please verify the spelling."
 
 
 async def fetch_quiz_question(topic: str = "", room=None) -> str:

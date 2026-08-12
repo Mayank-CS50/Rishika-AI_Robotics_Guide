@@ -2,6 +2,7 @@ import os
 import sqlite3
 import json
 import logging
+from contextlib import contextmanager
 from datetime import datetime
 
 logger = logging.getLogger("db_memory")
@@ -11,12 +12,21 @@ DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "memory.db")
 
 
+@contextmanager
 def get_connection():
-    """Ensure data directory exists and return SQLite connection."""
+    """Ensure data directory exists, yield a connection, and always close it.
+
+    `with sqlite3.connect(...)` commits but does not close — on Windows that leaves the
+    file locked, and in the long-running agent it leaks a handle per tool call.
+    """
     os.makedirs(DB_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def init_db():
@@ -37,8 +47,64 @@ def init_db():
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS opt_outs (
+                phone TEXT PRIMARY KEY,
+                opted_out_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         conn.commit()
         logger.info(f"SQLite database initialized at {DB_PATH}")
+
+
+def _normalize_phone(phone: str) -> str:
+    """Strip spaces, dashes and brackets so +91 98765-43210 == +919876543210.
+
+    A SIP username is not a phone number — stripping non-digits would collapse
+    'mayank123' to '123' and collide with unrelated targets, so leave it alone.
+    """
+    raw = (phone or "").strip()
+    if any(ch.isalpha() for ch in raw):
+        return raw.lower()
+    return "".join(ch for ch in raw if ch.isdigit() or ch == "+")
+
+
+def add_opt_out(phone: str) -> str:
+    """Record a do-not-call request. Called when a learner says 'stop calling'."""
+    init_db()
+    clean = _normalize_phone(phone)
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO opt_outs (phone, opted_out_at) VALUES (?, ?)",
+            (clean, datetime.now().isoformat()),
+        )
+        conn.commit()
+    logger.info(f"Recorded outbound opt-out for {clean}")
+    return clean
+
+
+def is_opted_out(phone: str) -> bool:
+    """True if this number has asked not to be called again. Checked before every dial."""
+    init_db()
+    clean = _normalize_phone(phone)
+    with get_connection() as conn:
+        row = conn.execute("SELECT 1 FROM opt_outs WHERE phone = ?", (clean,)).fetchone()
+    return row is not None
+
+
+def remove_opt_out(phone: str) -> bool:
+    """Clear a do-not-call entry. Needed after demoing the opt-out flow on your own line."""
+    init_db()
+    clean = _normalize_phone(phone)
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM opt_outs WHERE phone = ?", (clean,))
+        removed = cursor.rowcount > 0
+    if removed:
+        logger.info(f"Cleared outbound opt-out for {clean}")
+    return removed
 
 
 def get_user(query: str) -> dict | None:
