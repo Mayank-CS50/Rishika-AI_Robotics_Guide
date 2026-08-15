@@ -187,7 +187,12 @@ export function AgentSessionView_01({
   const { messages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { state: agentState } = useAgent();
+  const { state: agentState, internal } = useAgent();
+  // Day 9: set by the backend on handoff — 'kabir' while the P.I.D specialist is live.
+  // Read the participant's own map, NOT useAgent().attributes: that hook stores only the
+  // keys of the last AttributesChanged event, and the framework rewrites lk.agent.state on
+  // every listening/thinking/speaking flip, which wipes active_agent within a second.
+  const activeAgent = internal.agentParticipant?.attributes.active_agent;
 
   // Significant speech volume detection for user mic glow (filtering out background noise)
   const { localParticipant, isSpeaking: isUserSpeaking } = useLocalParticipant();
@@ -242,7 +247,7 @@ export function AgentSessionView_01({
           />
         )}
 
-        {/* Agent Speaking or Thinking: Vibrant Magenta Glow on LEFT SIDE */}
+        {/* Agent Speaking or Thinking: Magenta for Rishika, cyan while Kabir has the call */}
         {(agentState === 'speaking' || agentState === 'thinking') && (
           <motion.div
             key="left-agent-speaking-sim"
@@ -254,7 +259,12 @@ export function AgentSessionView_01({
             }}
             exit={{ opacity: 0, x: -50, scale: 0.85 }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-            className="fixed left-0 top-1/2 -translate-y-1/2 w-56 md:w-96 h-[80vh] bg-gradient-to-r from-[#EC4899]/90 via-[#EC4899]/45 to-transparent blur-[60px] pointer-events-none z-20 rounded-r-full shadow-[0_0_80px_#EC4899]"
+            className={cn(
+              'fixed left-0 top-1/2 -translate-y-1/2 w-56 md:w-96 h-[80vh] blur-[60px] pointer-events-none z-20 rounded-r-full bg-gradient-to-r',
+              activeAgent === 'kabir'
+                ? 'from-[#22D3EE]/90 via-[#22D3EE]/45 to-transparent shadow-[0_0_80px_#22D3EE]'
+                : 'from-[#EC4899]/90 via-[#EC4899]/45 to-transparent shadow-[0_0_80px_#EC4899]'
+            )}
           />
         )}
       </AnimatePresence>
@@ -270,6 +280,7 @@ export function AgentSessionView_01({
               <AgentChatTranscript
                 agentState={agentState}
                 messages={messages}
+                activeAgent={activeAgent}
                 className="mx-auto w-full h-full"
               />
             </motion.div>

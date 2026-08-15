@@ -2,10 +2,10 @@
 
 ## 📌 Executive Summary & Current Standing
 
-This handoff document provides a complete, up-to-date summary of the **Murf Falcon + LiveKit Voice Agent (Rishika - LFR Teaching Assistant)** repository standing as of **Day 7 Completion**.
+This handoff document provides a complete, up-to-date summary of the **Murf Falcon + LiveKit Voice Agent (Rishika - LFR Teaching Assistant)** repository standing as of **Day 9 Completion**.
 
-- **Current Status**: **Days 1 to 7 Code Complete** (Day 6 real phone call blocked on Twilio credentials — see below)
-- **Next Action**: Record the Day 7 video (browser session is enough), then finish the Day 6 call when a number is available.
+- **Current Status**: **Days 1 to 9 Code Complete** (Day 6 real phone call blocked on Twilio credentials — see below)
+- **Next Action**: Record the Day 7, 8 and 9 videos (browser sessions are enough), then finish the Day 6 call when a number is available.
 
 ---
 
@@ -161,8 +161,148 @@ it has no auth, so do not expose it.
 
 ---
 
+## 📊 Day 8: Call Analytics Dashboard (Complete)
 
-## 🚀 How to Run & Verify Current Project
+**Success condition (Learning & Literacy track): the learner completed an exercise.**
+Concretely, `score_spoken_answer` ran at least once in the session. A call that correctly
+handed the learner to a human mentor (Day 7) also counts as reaching its goal. Everything
+else is a failed call — which means *missed the goal*, not *crashed*.
+
+| Outcome | Reason key | Meaning |
+| :--- | :--- | :--- |
+| success | `exercise_completed` | An answer was scored |
+| success | `escalated` | Handed to a human mentor with consent |
+| failed | `no_engagement` | Nobody spoke |
+| failed | `left_early` | Talked, but never finished an exercise |
+| failed | `opted_out` | Asked to stop the practice calls |
+| failed | `not_connected` | Phone never picked up / busy / trunk error |
+
+| Step | Requirement | Status |
+| :--- | :--- | :--- |
+| **Step 1** | Define what a successful call means | Done ✅ |
+| **Step 2** | Record the outcome of every call when it ends | Done ✅ `ctx.add_shutdown_callback` — fires on every exit path |
+| **Step 3** | Dashboard shows total / successful / failed | Done ✅ plus success rate, reason breakdown, call history |
+| **Step 4** | Real data, nothing hardcoded | Done ✅ every number is a `COUNT(*)` over the `calls` table |
+| **Step 5** | Test the success path | Done ✅ `tests/test_analytics.py` (6 checks) + live browser session |
+| **Step 6** | Protect caller information | Done ✅ no transcript column exists; digits stripped from names |
+| **Step 7–9** | Video, LinkedIn, form | Pending (manual) ⏳ |
+
+### New files
+- [`backend/src/analytics.py`](file:///d:/Lvlup%20Sem%20comin/murf-livekit-starter/backend/src/analytics.py) — `calls` table (same SQLite file as Day 4/7), `classify()`, `record_call()`, `stats()`, `recent()`, and the dashboard markup. `python src/analytics.py` prints the same numbers in the terminal.
+- [`backend/tests/test_analytics.py`](file:///d:/Lvlup%20Sem%20comin/murf-livekit-starter/backend/tests/test_analytics.py) — success/failure classification, real-count assertions, reconnect dedupe, duration, and a PII check.
+
+### Changed
+- `agent.py` — the `Assistant` instance is now created before `session.start` so the tools and
+  the shutdown callback share one set of counters (`turns`, `exercises`, `escalation_ref`,
+  `opted_out`, `dial_failed`). `score_spoken_answer` marks the exercise, `create_escalation`
+  marks the handoff, `stop_calling_me` marks the opt-out, and the three Day 6 dial-failure
+  paths mark `dial_failed` before `ctx.shutdown()` so a call that never connected still gets
+  a row. A `user_input_transcribed` handler counts final transcripts only — the count, never
+  the text.
+- `escalations.py` — the desk page is now the **ops page**: Day 8 analytics on top, open mentor
+  requests below. One server, one port, still `127.0.0.1` only.
+
+### Privacy posture
+The `calls` table has no transcript, no message log, and no phone number column — a phone call
+is recorded as `channel = "phone"` and nothing more. Learner names are reduced to letters
+(`"Ramesh 9876543210"` → `"Ramesh"`), so a hallucinated name carrying a number cannot leak onto
+the page. `test_nothing_private_can_reach_the_dashboard` asserts all of this.
+
+### Run Day 8
+```powershell
+cd backend
+uv run python src/escalations.py            # ops page -> http://127.0.0.1:8787
+uv run python src/agent.py dev              # separate terminal
+uv run python src/analytics.py              # same numbers, in the terminal
+python -m pytest tests/test_analytics.py
+```
+
+### Demo script for the video
+1. Open the ops page — note the current totals (or zeros).
+2. **Success path** — start a browser session, say "Rishika, mujhe ek quiz do", answer it, let
+   her score it, then **disconnect**. Reload the page: total +1, successful +1, and the row
+   reads `SUCCESS · Completed an exercise`.
+3. **Failure path** — start a session, say "hello", disconnect without doing an exercise.
+   Reload: total +1, failed +1, `FAILED · Left before finishing an exercise`.
+4. Point out the success rate updating, and that nothing on the page is a transcript.
+
+### Not built
+- Chart.js graphs and filters — the KPI cards plus the reason breakdown carry the same
+  information without a frontend build step.
+- Latency-to-first-speech (needs the `metrics_collected` stream aggregated per call).
+- LiveKit webhooks as the recording trigger — the in-process shutdown callback already fires
+  on every exit path and needs no public URL.
+
+---
+
+
+## 🎯 Day 9: Hand Off to a Specialist Agent (Complete)
+
+**One specialist, one job.** Rishika stays the generalist — memory, IR sensors, wiring order,
+quizzes, dictionary, human escalation. PID tuning gets its own agent, because that is where LFR
+builds actually die and it needs a different kind of attention: **Kabir, the PID tuning
+specialist.** He tunes three numbers (Kp, Ki, Kd) and nothing else.
+
+| Step | Requirement | Status |
+| :--- | :--- | :--- |
+| **Step 1** | One specialist, one clear job | Done ✅ PID tuning only |
+| **Step 2** | Separate agent, own instructions and limits | Done ✅ `PIDCoach` — 1 tool vs Rishika's 10 |
+| **Step 3** | Handoff tool on the main agent with a clear description | Done ✅ `transfer_to_pid_specialist` |
+| **Step 4** | Conversation passed across, no re-explaining | Done ✅ `chat_ctx=main.chat_ctx` + a written briefing |
+| **Step 5** | Handoff announced to the learner | Done ✅ `session.say()` before the switch, `on_enter` intro after |
+| **Step 6** | Both paths tested | Done ✅ `tests/test_handoff.py` (6 checks incl. the 10-request routing table) |
+| **Step 7–9** | Video, LinkedIn, form | Pending (manual) ⏳ |
+
+### New files
+- [`backend/src/specialists.py`](file:///d:/Lvlup%20Sem%20comin/murf-livekit-starter/backend/src/specialists.py) — `PID_TRIGGERS` / `needs_pid_coach()`, the Kabir prompt, `PIDCoach(Agent)` with `on_enter` and `hand_back_to_rishika`, and `_briefing()` which pulls the learner's Day 4 profile into the handoff.
+- [`backend/tests/test_handoff.py`](file:///d:/Lvlup%20Sem%20comin/murf-livekit-starter/backend/tests/test_handoff.py) — routing table, refusal path, real handoff, hand-back, failed handoff.
+
+### Changed
+- `agent.py` — `DAY 9 SPECIALIST HANDOFF RULES` in the system prompt, and the
+  `transfer_to_pid_specialist` tool. It returns the `PIDCoach` **agent** (LiveKit switches on an
+  `Agent` return value); returning it *without* a message means Rishika does not speak twice.
+- `static_intents.py` — `HANDOFF_TO_PID_FILLER`, spoken via `session.say()` so the announcement
+  is word-for-word every time instead of whatever the LLM feels like paraphrasing.
+
+### Why the routing guard is in code, not just the prompt
+`needs_pid_coach()` runs inside the handoff tool. If the LLM tries to send an IR-threshold or
+wiring question to Kabir, the tool refuses and returns `NOT_TRANSFERRED: … it is yours to answer`,
+so Rishika answers it herself. The prompt asks nicely; the guard makes it true. `PID_TRIGGERS` is
+deliberately narrow — bare "tune" does not match, PID/Kp/Ki/Kd/oscillation/wobble/zig-zag does
+(English and Devanagari).
+
+### Advanced extras included
+- **Hand back** — `hand_back_to_rishika` returns the *same* `Assistant` instance, so the Day 8
+  counters, `dial_info` and opt-out path survive the round trip.
+- **Shared data** — the briefing carries the learner's name, saved level, topics covered, known
+  mistakes and language, so Kabir never asks for something they already told Rishika.
+- **Failed handoff** — constructing the specialist is wrapped; on failure the tool returns
+  `HANDOFF_FAILED` and Rishika continues the tuning herself instead of dead-ending.
+- **Routing test** — ten real learner sentences, five that must stay and five that must go.
+
+### Run Day 9
+```powershell
+cd backend
+uv run python src/agent.py dev
+python -m pytest tests/test_handoff.py
+```
+
+### Demo script for the video
+1. **Normal path** — "मेरा IR sensor threshold कैसे set करूं?" → Rishika answers herself, no handoff.
+2. **Specialist path** — "मेरा रोबोट लाइन पर ज़िग-ज़ैग कर रहा है" → Rishika announces the handoff →
+   Kabir introduces himself and asks for the current Kp/Ki/Kd **without** re-asking the problem.
+3. Give him gains, take one tuning step so he coaches.
+4. **Hand back** — "अब मुझे एक क्विज़ दो" → Kabir returns the conversation, Rishika picks up the quiz.
+
+### Not built
+- More specialists (an IR-calibration coach was the obvious second) — one working handoff is the
+  requirement, and a second agent doubles the routing surface for no new demo value.
+- A specialist-handoff column on the Day 8 dashboard — would need a schema migration for an
+  existing DB, and the handoff already shows up in the logs.
+
+---
+
+
 
 ### Backend (Python)
 ```powershell
@@ -175,6 +315,9 @@ uv run python src/agent.py console
 
 # Mentor desk (Day 7) — separate terminal
 uv run python src/escalations.py
+
+# Call analytics in the terminal (Day 8)
+uv run python src/analytics.py
 
 # Unit tests
 python -m pytest tests

@@ -37,6 +37,14 @@ DICTIONARY_LOOKUP_FILLER = "एक सेकंड, मैं डिक्शन
 QUIZ_FETCH_FILLER = "ठीक है, मैं आपके लिए साइंस और रोबोटिक्स क्विज़ का सवाल निकाल रही हूँ..."
 ESCALATION_FILLER = "ठीक है, मैं आपकी रिक्वेस्ट मेंटर के लिए तैयार कर रही हूँ..."
 
+# Day 9: spoken by Rishika via session.say, so the learner is always told about the
+# handoff in the same words — the LLM cannot paraphrase the announcement away.
+# "पी आई डी" and not "PID": spelled out so Murf reads three letters, not one word.
+HANDOFF_TO_PID_FILLER = (
+    "ये पी आई डी ट्यूनिंग का मामला है, तो मैं आपको हमारे पी आई डी स्पेशलिस्ट कबीर से कनेक्ट कर रही हूँ। "
+    "एक सेकंड..."
+)
+
 
 def outbound_opening(student_name: str = "", last_topic: str = "") -> str:
     """Day 6 opening script. First two sentences must say who is calling, why, and how to stop.

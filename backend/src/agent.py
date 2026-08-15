@@ -3,8 +3,10 @@ import asyncio
 import json
 import logging
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
+import analytics
 import db_memory
+import specialists
 import static_intents
 import educational_tools
 import escalations
@@ -47,6 +49,7 @@ LANGUAGE & SCRIPT RULES:
 - DYNAMIC HINDI SWITCHING: When the user speaks or writes in Hindi, automatically detect it and switch to responding in Hindi using native Devanagari script.
 - Keep all responses concise: 2 to 3 sentences maximum per turn.
 - Speak naturally for voice TTS — do not use bullet points, markdown code blocks, brackets, or special symbols.
+- ACRONYMS ARE SPELLED OUT, never written as words. Write "पी आई डी" in Hindi and "P I D" in English — never "PID", because it gets mispronounced as one word. Same for the gains: "के पी", "के आई", "के डी" in Hindi.
 
 DAY 4 MEMORY & RETRIEVAL RULES:
 - RETURNING CALLER LOOKUP: When the student states their name or introduces themselves (e.g. "Hi, I am Ramesh" or "नमस्ते, मैं रमेश हूँ"), invoke `lookup_user` to check their saved memory record.
@@ -75,7 +78,14 @@ DAY 7 HUMAN HANDOFF RULES:
 - Ask how they want to be followed up (call back, WhatsApp, or in the next class) and pass it as follow_up.
 - AFTER the tool returns: read the reference ID out slowly, character by character, and be honest — a human mentor checks this queue during Firefly Academy hours and replies within one working day. NEVER promise an instant call back or that someone is looking at it right now.
 - STATUS CHECK: if the learner mentions an existing reference ID or asks what happened to their request, invoke `check_escalation_status`.
-- Everything else you handle YOURSELF — normal LFR doubts, quizzes, IR thresholds, PID logic, wiring order. A question being hard is not a reason to escalate. """
+- Everything else you handle YOURSELF — normal LFR doubts, quizzes, IR thresholds, PID logic, wiring order. A question being hard is not a reason to escalate.
+
+DAY 9 SPECIALIST HANDOFF RULES:
+- You are not the PID expert. Kabir is. The moment the learner's problem is about PID gains or line-tracking stability — zig-zagging, wobbling, oscillation, overshooting curves, sluggish correction, or the values of Kp, Ki or Kd — invoke `transfer_to_pid_specialist` and pass their request in their own words.
+- Everything else stays with YOU. IR sensor thresholds, wiring order, L298N basics, duty cycle, quizzes, word definitions, memory, hardware faults and human escalation are all your job. Do NOT hand those to Kabir.
+- A general "my robot is not working" is not enough. Ask what it is doing first; hand off only once you hear a stability or gain symptom.
+- After you hand off, Kabir owns the conversation. He hands it back to you when the learner changes topic or the tuning is done."""
+
 
 
 # Day 6: appended only for outbound phone calls. The learner did not ask for this call.
@@ -93,6 +103,15 @@ DAY 6 OUTBOUND PHONE CALL RULES:
 class Assistant(Agent):
     def __init__(self, dial_info: dict | None = None) -> None:
         self.dial_info = dial_info or {}
+        # Day 8: what this call achieved. Read once by the shutdown callback in my_agent.
+        # Counters and IDs only — never any transcript.
+        self.turns = 0
+        self.exercises = 0
+        self.escalation_ref = ""
+        self.opted_out = False
+        self.dial_failed = False
+        self.learner = self.dial_info.get("student_name", "")
+        self.language = ""
         instructions = SYSTEM_PROMPT
         if self.dial_info.get("phone_number"):
             instructions += OUTBOUND_RULES
@@ -106,6 +125,7 @@ class Assistant(Agent):
             user_identifier: The caller's name or user ID (e.g. "Ramesh", "Priya", "user_101").
         """
         logger.info(f"Looking up memory record for {user_identifier}.")
+        self.learner = self.learner or user_identifier
         if hasattr(context, "session") and context.session:
             try:
                 await context.session.say(static_intents.LOOKUP_USER_FILLER)
@@ -148,6 +168,8 @@ class Assistant(Agent):
             language_preference: Language used ("English", "Hindi", "Hinglish").
         """
         logger.info(f"Saving memory record for {name}.")
+        self.learner = name
+        self.language = language_preference
         if hasattr(context, "session") and context.session:
             try:
                 await context.session.say(static_intents.SAVE_USER_FILLER)
@@ -226,6 +248,8 @@ class Assistant(Agent):
             question_or_topic: Optional question or topic being answered.
         """
         logger.info(f"Scoring student answer: '{user_answer}'")
+        # Day 8 success condition: a scored answer is a completed exercise.
+        self.exercises += 1
         room = getattr(context, "room", None)
         return await educational_tools.evaluate_answer_score(user_answer, question_or_topic, room=room)
 
@@ -286,6 +310,10 @@ class Assistant(Agent):
             return "The request could not be created. Apologise briefly and tell them to contact Firefly Academy directly."
 
         delivered = await escalations.notify(row)
+        # Day 8: a correct handoff is a successful call, not a failed lesson.
+        self.escalation_ref = row["ref_id"]
+        self.learner = learner_name or self.learner
+        self.language = language or self.language
         room = getattr(context, "room", None)
         await educational_tools.broadcast_tool_card(
             room=room,
@@ -329,6 +357,58 @@ class Assistant(Agent):
         )
 
     @function_tool
+    async def transfer_to_pid_specialist(
+        self, context: RunContext, learner_request: str
+    ) -> Agent | str:
+        """Hand the conversation to Kabir, the PID tuning specialist.
+
+        Use this ONLY when the learner's problem is about PID gains or line-tracking
+        stability: the robot zig-zags or wobbles on the line, oscillates, overshoots
+        curves, corrects too slowly, sits off-centre, or they are asking what to set
+        Kp, Ki or Kd to. The spoken "I am connecting you to our PID specialist"
+        announcement is handled for you — just call this tool.
+
+        Do NOT use this for anything else. IR sensor thresholds, wiring order, L298N
+        or motor driver basics, duty cycle, quizzes, word definitions, saving memory,
+        burning smells or any hands-on hardware fault all stay with YOU.
+
+        Args:
+            learner_request: What the learner just asked, in their own words, so Kabir
+                does not make them explain the problem again.
+        """
+        if not specialists.needs_pid_coach(learner_request):
+            logger.info(f"Handoff refused — no PID signal in: '{learner_request}'")
+            return (
+                "NOT_TRANSFERRED: that request has no PID or tuning symptom in it, so it is "
+                "yours to answer. Handle it yourself now, and only transfer if they describe "
+                "zig-zagging, wobbling, oscillation, overshoot, or ask about Kp, Ki or Kd."
+            )
+
+        try:
+            coach = specialists.PIDCoach(main=self, learner_request=learner_request)
+        except Exception as e:
+            # A failed handoff must not become a dead end — Rishika keeps the learner.
+            logger.exception(f"Could not start the PID specialist: {e}")
+            return (
+                "HANDOFF_FAILED: the PID specialist could not be reached. Apologise in one "
+                "short sentence, tell the learner you will help with the tuning yourself, "
+                "and continue: Kp first until it tracks but wobbles, then Kd to damp the "
+                "wobble, then Ki only if it still sits off-centre."
+            )
+
+        logger.info(f"Handing off to the PID specialist: '{learner_request}'")
+        if hasattr(context, "session") and context.session:
+            try:
+                await context.session.say(static_intents.HANDOFF_TO_PID_FILLER)
+            except Exception as e:
+                logger.warning(f"Failed to speak handoff announcement: {e}")
+
+        # Returning the Agent alone (no message) switches agents without Rishika
+        # speaking again — the announcement above already happened, and the coach's
+        # on_enter introduces him.
+        return coach
+
+    @function_tool
     async def stop_calling_me(self, context: RunContext) -> str:
         """Register a do-not-call request and end the call. Invoke IMMEDIATELY when the student says
         "stop calling", "don't call again", "बंद करो", "मुझे कॉल मत करो", or otherwise asks to opt out
@@ -339,6 +419,7 @@ class Assistant(Agent):
             return "This is a web session, not a phone call, so there is nothing to opt out of."
 
         db_memory.add_opt_out(phone)
+        self.opted_out = True
         logger.info(f"Opt-out recorded for {phone}; hanging up.")
         asyncio.create_task(_hangup())
         return f"Recorded the do-not-call request for {phone}. Confirm warmly that they will not be called again, then say goodbye."
@@ -378,6 +459,27 @@ async def my_agent(ctx: JobContext):
     # Day 6: dispatch metadata carries the number to dial. Empty on web sessions.
     dial_info = json.loads(ctx.job.metadata) if ctx.job.metadata else {}
     phone_number = dial_info.get("phone_number")
+
+    # Day 8: one analytics row per call, written when the job shuts down — which happens
+    # on every exit path, including a dial that never connected.
+    assistant = Assistant(dial_info=dial_info)
+    started_at = datetime.now().isoformat(timespec="seconds")
+
+    async def _record_outcome(reason: str) -> None:
+        analytics.record_call(
+            room=ctx.room.name,
+            channel="phone" if phone_number else "web",
+            started_at=started_at,
+            turns=assistant.turns,
+            exercises=assistant.exercises,
+            escalation_ref=assistant.escalation_ref,
+            opted_out=assistant.opted_out,
+            dial_failed=assistant.dial_failed,
+            learner=assistant.learner,
+            language=assistant.language,
+        )
+
+    ctx.add_shutdown_callback(_record_outcome)
 
     # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
     session = AgentSession(
@@ -440,6 +542,12 @@ async def my_agent(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
+    @session.on("user_input_transcribed")
+    def _on_user_transcript(ev):
+        # Day 8: how many times the learner actually spoke. Only the count is kept.
+        if getattr(ev, "is_final", False) and (ev.transcript or "").strip():
+            assistant.turns += 1
+
     @session.on("user_speech_committed")
     def _on_user_speech(ev):
         # Skip the canned greeting on outbound — the disclosure already introduced us.
@@ -462,6 +570,7 @@ async def my_agent(ctx: JobContext):
         trunk_id = os.getenv("SIP_OUTBOUND_TRUNK_ID")
         if not trunk_id:
             logger.error("SIP_OUTBOUND_TRUNK_ID is not set — cannot place outbound call.")
+            assistant.dial_failed = True
             ctx.shutdown(reason="missing trunk")
             return
 
@@ -485,6 +594,7 @@ async def my_agent(ctx: JobContext):
                 f"Outbound call to {phone_number} failed: code={e.code} "
                 f"sip_status={e.metadata.get('sip_status_code')} {e.metadata.get('sip_status')}"
             )
+            assistant.dial_failed = True
             ctx.shutdown(reason=f"dial failed: {e.code}")
             return
 
@@ -492,6 +602,7 @@ async def my_agent(ctx: JobContext):
             await ctx.wait_for_participant(identity=phone_number)
         except Exception as e:
             logger.warning(f"Callee never joined the room: {e}")
+            assistant.dial_failed = True
             ctx.shutdown(reason="callee absent")
             return
 
@@ -502,7 +613,7 @@ async def my_agent(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(dial_info=dial_info),
+        agent=assistant,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

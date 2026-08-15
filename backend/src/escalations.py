@@ -10,11 +10,14 @@ The request is written to the same SQLite file as student memory, so the desk pa
 below always works with zero credentials. If ESCALATION_WEBHOOK_URL is set, the
 summary is also POSTed to Discord/Slack.
 
-    uv run python src/escalations.py                  # desk page, http://127.0.0.1:8787
+    uv run python src/escalations.py                  # ops page, http://127.0.0.1:8787
     uv run python src/escalations.py --list
     uv run python src/escalations.py --resolve ESC-4F2A
 
-The desk page is read-only and binds to 127.0.0.1 only, so it has no auth. Do not
+The same page also renders the Day 8 call analytics (see analytics.py), so one
+command shows both how the agent is performing and what needs a human.
+
+The page is read-only and binds to 127.0.0.1 only, so it has no auth. Do not
 port-forward it or bind it to 0.0.0.0 — learner names and problems are on it.
 """
 
@@ -30,6 +33,7 @@ from uuid import uuid4
 
 import aiohttp
 
+import analytics
 from db_memory import get_connection
 
 logger = logging.getLogger("escalations")
@@ -222,19 +226,32 @@ async def notify(row: dict) -> bool:
     return False
 
 
-_PAGE = """<!doctype html><meta charset="utf-8"><title>Mentor desk</title>
+_PAGE = """<!doctype html><meta charset="utf-8"><title>Rishika ops desk</title>
 <meta http-equiv="refresh" content="10">
 <style>
 body{{background:#0c0a18;color:#e4e4e7;font:14px/1.7 ui-monospace,monospace;padding:2rem}}
-h1{{color:#EC4899;font-size:.8rem;letter-spacing:.25em}}
+h1{{color:#EC4899;font-size:.8rem;letter-spacing:.25em;margin:2rem 0 .5rem}}
 article{{border:1px solid rgba(236,72,153,.6);border-radius:14px;padding:1rem 1.25rem;
 margin:1rem 0;max-width:44rem;white-space:pre-wrap}}
 article.high,article.emergency{{border-color:#ef4444;color:#fecaca}}
 small{{color:#71717a}}
+.kpis{{display:flex;gap:1rem;flex-wrap:wrap}}
+.kpi{{border:1px solid rgba(236,72,153,.35);border-radius:14px;padding:1rem 1.5rem;min-width:9rem}}
+.kpi b{{display:block;font-size:2rem;line-height:1.2}}
+.kpi span{{color:#a1a1aa;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase}}
+.kpi.ok b{{color:#10B981}} .kpi.bad b{{color:#ef4444}}
+.reasons{{list-style:none;padding:0;max-width:32rem}}
+.reasons li{{display:flex;justify-content:space-between;border-bottom:1px dashed #27272a;padding:.2rem 0}}
+.reasons li.success{{color:#10B981}} .reasons li.failed{{color:#f87171}}
+table{{border-collapse:collapse;font-size:.75rem;margin-top:.5rem}}
+th,td{{text-align:left;padding:.35rem .9rem .35rem 0;border-bottom:1px solid #1f1f27;white-space:nowrap}}
+th{{color:#71717a;font-weight:400;text-transform:uppercase;letter-spacing:.1em}}
+td.success{{color:#10B981}} td.failed{{color:#f87171}}
 </style>
+{analytics}
 <h1>OPEN MENTOR REQUESTS ({count})</h1>
 {body}
-<small>Auto-refreshes every 10s · localhost only</small>"""
+<small>Auto-refreshes every 10s · localhost only · no transcripts, numbers or secrets stored</small>"""
 
 
 class _Desk(BaseHTTPRequestHandler):
@@ -246,7 +263,9 @@ class _Desk(BaseHTTPRequestHandler):
             f'<article class="{html.escape(r["urgency"])}">{html.escape(format_summary(r))}</article>'
             for r in rows
         ) or "<article>Nothing open — Rishika is handling her own lessons.</article>"
-        page = _PAGE.format(count=len(rows), body=body).encode("utf-8")
+        page = _PAGE.format(
+            count=len(rows), body=body, analytics=analytics.render_html()
+        ).encode("utf-8")
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -281,7 +300,7 @@ def main() -> int:
         return 0
 
     server = HTTPServer(("127.0.0.1", DESK_PORT), _Desk)
-    print(f"Mentor desk on http://127.0.0.1:{DESK_PORT} — Ctrl+C to stop.")
+    print(f"Ops desk (call analytics + mentor queue) on http://127.0.0.1:{DESK_PORT} — Ctrl+C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
