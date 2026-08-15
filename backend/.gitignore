@@ -2,6 +2,10 @@
 .env.*
 !.env.example
 .DS_Store
+
+# Learner profiles, escalations, opt-out numbers and call rows. Never publish.
+data/*.db
+
 __pycache__
 .idea
 KMS

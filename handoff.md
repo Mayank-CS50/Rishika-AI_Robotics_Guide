@@ -2,7 +2,7 @@
 
 ## 📌 Executive Summary & Current Standing
 
-This handoff document provides a complete, up-to-date summary of the **Murf Falcon + LiveKit Voice Agent (Rishika - LFR Teaching Assistant)** repository standing as of **Day 9 Completion**.
+This handoff document provides a complete, up-to-date summary of the **Murf Falcon + LiveKit Voice Agent (Rishika - LFR Teaching Assistant)** repository standing as of **Day 10 Completion** (all code done; publishing the blog and LinkedIn post is manual).
 
 - **Current Status**: **Days 1 to 9 Code Complete** (Day 6 real phone call blocked on Twilio credentials — see below)
 - **Next Action**: Record the Day 7, 8 and 9 videos (browser sessions are enough), then finish the Day 6 call when a number is available.
@@ -302,7 +302,47 @@ python -m pytest tests/test_handoff.py
 
 ---
 
+## ✍️ Day 10: Share the Journey (Code Complete, Publishing Manual)
 
+| Step | Requirement | Status |
+| :--- | :--- | :--- |
+| **Step 1–6** | Blog post: story + guide, features, honest difficulties, setup instructions, evidence | Done ✅ [`blog/day-10-voice-agent.md`](./blog/day-10-voice-agent.md) |
+| **Step 7** | Publish on DEV Community | Pending (manual) ⏳ |
+| **Step 8** | LinkedIn post linking the blog | Pending (manual) ⏳ |
+| **Step 9** | Discord form submission | Pending (manual) ⏳ |
+
+### Blockers found while preparing the blog, and what was done
+
+1. **`backend/data/memory.db` was tracked in git and already pushed public** — 6 learner
+   profiles (name, level, topics, mistakes), 3 escalations, 20 call rows. `.gitignore` covered
+   `.env.*` and nothing else. Now `git rm --cached` + `data/*.db` in `backend/.gitignore`, with
+   `data/.gitkeep` so the directory survives a clone. **History was not rewritten** — the rows
+   are development test data and a public force-push costs more than it buys. Stated as a known
+   limitation in the README rather than quietly ignored.
+2. **`README.md` was still upstream's** — it described a customer-support agent and told readers
+   to clone `murf-ai/murf-livekit-starter`. Rewritten for this project: the problem, the
+   capability table, an extended architecture diagram, keys-in-`.env.local` instructions, a
+   seven-line script for testing a conversation, the ops page, and the known limitations.
+   Upstream's Falcon stats, mermaid diagram and env table were kept — they were accurate.
+3. **Day 8 + Day 9 were not on the public repo** — resolved by commit `1968255`.
+
+### The three difficulties the blog writes up honestly
+- **Prompts cannot hold a guardrail.** Consent and PID routing both moved into the tool bodies
+  (`create_escalation`'s `consent_confirmed` gate, re-checked in `escalations.create_or_update()`;
+  `needs_pid_coach()` inside `transfer_to_pid_specialist`). The prompt asks, the code decides.
+- **Murf pronounced "PID" as a word.** `P.I.D.` was worse — `SentenceTokenizer(min_sentence_len=2)`
+  splits on periods and the speech went choppy. Spaced letters (`पी आई डी` / `P I D`) in all three
+  spoken paths, locked by `test_pid_is_never_spoken_as_one_word`.
+- **`useAgent().attributes` silently dropped `active_agent`.** The hook's `AttributesChanged`
+  listener replaces state with only the *changed* keys, and the framework rewrites
+  `lk.agent.state` on every state flip. Fixed by reading
+  `internal.agentParticipant?.attributes` instead.
+
+### Before publishing
+The ops-page screenshot must not show the 6 real learner names — point the page at a throwaway
+DB copy seeded with fake rows, or crop. Keep agent terminals off screen: `.env.local` loads there.
+
+---
 
 ### Backend (Python)
 ```powershell
