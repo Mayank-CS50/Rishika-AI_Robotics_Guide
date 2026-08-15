@@ -250,6 +250,7 @@ murf-livekit-starter/
 
 ## Links
 
+- **Blog post:** [I built a Hindi-speaking voice tutor for robotics students — and learned that prompts can't hold guardrails](https://dev.to/mayank-cs50/i-built-a-hindi-speaking-voice-tutor-for-robotics-students-and-learned-that-prompts-cant-hold-4boo)
 - [Murf API docs](https://murf.ai/api/docs) · [voice library](https://murf.ai/api/docs/voices-styles/voice-library) · [Falcon 2](https://murf.ai/api/docs/text-to-speech-models/falcon-2)
 - [LiveKit Agents docs](https://docs.livekit.io/agents/) · [Deepgram docs](https://developers.deepgram.com)
 - Upstream template: [murf-ai/murf-livekit-starter](https://github.com/murf-ai/murf-livekit-starter)

@@ -1,8 +1,9 @@
 ---
 title: I built a Hindi-speaking voice tutor for robotics students — and learned that prompts can't hold guardrails
-published: false
+published: true
 description: Ten days of building Rishika, a voice agent that helps Indian students debug line follower robots in Hinglish. Murf Falcon + LiveKit + Deepgram, with the three bugs that actually taught me something.
-tags: voiceai, python, ai, tutorial
+tags: voiceagent, ai, voiceai, python
+canonical_url: https://dev.to/mayank-cs50/i-built-a-hindi-speaking-voice-tutor-for-robotics-students-and-learned-that-prompts-cant-hold-4boo
 ---
 
 It's 11pm. A student has a line follower robot on the table, two IR sensors, an L298N motor

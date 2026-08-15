@@ -307,7 +307,7 @@ python -m pytest tests/test_handoff.py
 | Step | Requirement | Status |
 | :--- | :--- | :--- |
 | **Step 1–6** | Blog post: story + guide, features, honest difficulties, setup instructions, evidence | Done ✅ [`blog/day-10-voice-agent.md`](./blog/day-10-voice-agent.md) |
-| **Step 7** | Publish on DEV Community | Pending (manual) ⏳ |
+| **Step 7** | Publish on DEV Community | Done ✅ [live post](https://dev.to/mayank-cs50/i-built-a-hindi-speaking-voice-tutor-for-robotics-students-and-learned-that-prompts-cant-hold-4boo) |
 | **Step 8** | LinkedIn post linking the blog | Pending (manual) ⏳ |
 | **Step 9** | Discord form submission | Pending (manual) ⏳ |
 
