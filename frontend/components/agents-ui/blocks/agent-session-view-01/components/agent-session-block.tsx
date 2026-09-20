@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, type MotionProps, motion } from 'motion/react';
 import {
   useAgent,
+  useIsSpeaking,
   useLocalParticipant,
   useSessionContext,
   useSessionMessages,
@@ -195,7 +196,8 @@ export function AgentSessionView_01({
   const activeAgent = internal.agentParticipant?.attributes.active_agent;
 
   // Significant speech volume detection for user mic glow (filtering out background noise)
-  const { localParticipant, isSpeaking: isUserSpeaking } = useLocalParticipant();
+  const { localParticipant } = useLocalParticipant();
+  const isUserSpeaking = useIsSpeaking(localParticipant);
   const micPublication = localParticipant?.getTrackPublication(Track.Source.Microphone);
   const micVolume = useTrackVolume(micPublication?.track);
 
