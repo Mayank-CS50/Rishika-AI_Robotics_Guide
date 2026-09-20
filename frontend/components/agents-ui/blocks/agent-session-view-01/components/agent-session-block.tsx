@@ -199,7 +199,7 @@ export function AgentSessionView_01({
   const { localParticipant } = useLocalParticipant();
   const isUserSpeaking = useIsSpeaking(localParticipant);
   const micPublication = localParticipant?.getTrackPublication(Track.Source.Microphone);
-  const micVolume = useTrackVolume(micPublication?.track);
+  const micVolume = useTrackVolume(micPublication?.track as any);
 
   // Trigger right emerald glow ONLY on significant vocal speech (volume > 0.10)
   const isSignificantUserSpeech =
