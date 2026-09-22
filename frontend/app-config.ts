@@ -33,9 +33,9 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'BLUESKY // FIREFLY',
-  pageTitle: 'Rishi — LFR Teaching Assistant',
-  pageDescription: 'Your voice-powered line follower robotics assistant',
+  companyName: 'RISHIKA VOICE LABS',
+  pageTitle: 'Rishika — Voice AI LFR Teaching Assistant',
+  pageDescription: 'Hindi-first real-time voice teaching assistant for Line Follower Robots',
 
   supportsChatInput: true,
   supportsVideoInput: false,

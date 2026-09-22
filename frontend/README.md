@@ -1,33 +1,34 @@
-# Frontend — Voice Agent UI
+# Rishika Frontend — Voice AI UI & 3D Interactive Interface
 
-The React/Next.js frontend for the Voice Agent Starter. Built with [LiveKit Agents UI](https://livekit.io/ui) components, it provides a polished interface for real-time voice conversations with your agent.
+The React & Next.js 15 frontend for **Rishika (Voice AI LFR Teaching Assistant)**. Built with Next.js Turbopack, Framer Motion, 3D WebGL Spline scenes, and [LiveKit Agents UI](https://livekit.io/ui) components, it provides a high-performance interactive interface for real-time voice conversations, clickable MCQ quiz cards, and mentor ticket feedback.
 
-### Features
+---
 
-- Real-time voice interaction with LiveKit Agents
-- Camera video streaming support
-- Screen sharing capabilities
-- Multiple audio visualizer styles (`bar`, `grid`, `radial`, `wave`, `aura`)
-- Light/dark theme switching with system preference detection
-- Customizable branding, colors, and UI text via configuration
+## 🎨 Features & Capabilities
 
-## Setup
+- **Real-Time Audio Visualizer**: Aura shader-based visualizer with dynamic color shifts.
+- **Interactive Clickable MCQ Cards**: Custom tool result cards (`tool-data-card.tsx`) that display LiveKit quiz payloads with emerald/red feedback and voice-synced option triggers.
+- **3D Spline Landing Page**: Seamless blended 3D background morphing into active session view (`welcome-view.tsx`).
+- **Glassmorphism Chat Experience**: Overlay glassmorphic transcript pane with scroll-fade masks and shimmer loading indicators.
+- **Theme Support**: System preference dark/light mode with customized accent colors.
 
-### 1. Install dependencies
+---
 
+## 🚀 Setup & Execution
+
+### 1. Install Dependencies
 ```bash
 cd frontend
 pnpm install
 ```
 
-### 2. Configure environment
-
+### 2. Configure Environment
+Copy `.env.example` to `.env.local`:
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in your LiveKit credentials (same project as the backend):
-
+Set your LiveKit credentials in `.env.local`:
 ```env
 LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_key
@@ -35,107 +36,58 @@ LIVEKIT_API_SECRET=your_secret
 AGENT_NAME=my-agent
 ```
 
-### 3. Run
-
+### 3. Start Development Server
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Make sure your backend agent is running too.
+Open [http://localhost:3000](http://localhost:3000) in your browser. Ensure the Rishika backend service is running concurrently.
 
-## Customization
+---
 
-### Branding & UI (`app-config.ts`)
+## ⚙️ Customization (`app-config.ts`)
 
-Edit [`app-config.ts`](app-config.ts) to change branding, features, and button text:
+UI titles, branding, and audio visualizer parameters are managed centrally in [`app-config.ts`](app-config.ts):
 
 ```ts
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'RISHIKA VOICE LABS',
+  pageTitle: 'Rishika — Voice AI LFR Teaching Assistant',
+  pageDescription: 'Hindi-first real-time voice teaching assistant for Line Follower Robots',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
+  isPreConnectBufferEnabled: true,
 
-  logo: '/murf-logo.svg',
-  accent: '#6366F1',
-  logoDark: '/murf-logo-dark.svg',
-  accentDark: '#818cf8',
-  startButtonText: 'Start talking',
-
-  agentName: process.env.AGENT_NAME ?? undefined,
+  logo: '/logo.png',
+  accent: '#EC4899',
+  startButtonText: 'START LAB QUEST [▶]',
+  audioVisualizerType: 'aura',
 };
 ```
 
-### Audio visualizers
+---
 
-Set `audioVisualizerType` in [`app-config.ts`](app-config.ts):
-
-| Type | Description | Key options |
-|------|-------------|-------------|
-| `bar` (default) | Vertical bars | `audioVisualizerBarCount` |
-| `grid` | Dot grid | `audioVisualizerGridRowCount`, `audioVisualizerGridColumnCount` |
-| `radial` | Circular bars | `audioVisualizerRadialBarCount`, `audioVisualizerRadialRadius` |
-| `wave` | Oscilloscope wave | `audioVisualizerWaveLineWidth` |
-| `aura` | Shader-based glow | `audioVisualizerAuraColorShift` |
-
-Use `audioVisualizerColor` / `audioVisualizerColorDark` to set accent colors across all modes.
-
-### Editing components
-
-All UI components are local and fully editable:
-
-- **`components/agents-ui/`** — Core UI: media controls, audio visualizers, chat transcript, session provider
-- **`components/app/`** — App-level logic: view transitions, welcome screen, theming
-- **`components/ui/`** — Primitive shadcn/ui components (button, select, tooltip, etc.)
-
-To update Agents UI components to the latest version:
-
-```bash
-pnpm shadcn:install
-```
-
-## Project Structure
+## 📂 Project Structure
 
 ```
 frontend/
 ├── app/
-│   ├── page.tsx                # Main page
-│   ├── layout.tsx              # Root layout
-│   └── api/token/route.ts      # LiveKit token endpoint
+│   ├── page.tsx                # Main application page
+│   ├── layout.tsx              # Root HTML layout & font definitions
+│   └── api/token/route.ts      # LiveKit JWT token generation endpoint
 ├── components/
-│   ├── agents-ui/              # Agents UI components (visualizers, controls, chat)
-│   ├── app/                    # App components (welcome view, theme, controller)
-│   ├── ai-elements/            # AI conversation elements
-│   └── ui/                     # Primitive shadcn/ui components
-├── hooks/                      # React hooks (audio visualizers, controls)
-├── lib/                        # Utilities
-├── public/                     # Static assets (logos, fonts)
-├── styles/                     # Global CSS
-├── app-config.ts               # Branding & feature configuration
-└── package.json                # Dependencies (pnpm)
+│   ├── agents-ui/              # LiveKit audio visualizers & custom tool cards
+│   ├── app/                    # Welcome view, 3D Spline canvas & view controller
+│   └── ui/                     # Primitive shadcn UI elements
+├── hooks/                      # Custom audio & session state hooks
+├── styles/                     # Global CSS tokens & glassmorphism utilities
+├── app-config.ts               # Branding & feature flags
+└── package.json                # Dependencies & scripts
 ```
 
-## Deployment
+---
 
-### Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
-
-Set these environment variables:
-- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-- `AGENT_NAME` (optional — for explicit agent dispatch)
-
-The frontend and backend don't call each other directly — they both connect to LiveKit, which handles real-time audio transport. Use the same LiveKit project credentials on both.
-
-## Links
-
-- [LiveKit Agents UI](https://livekit.io/ui)
-- [LiveKit JavaScript SDK](https://github.com/livekit/client-sdk-js)
-- [LiveKit Docs](https://docs.livekit.io)
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+## 📄 License
+MIT License

@@ -1,18 +1,18 @@
 # AGENTS.md
 
-This is a monorepo for a voice AI agent starter, powered by Murf Falcon TTS and LiveKit Agents.
+This is the monorepo for **Rishika — Voice AI Teaching Assistant for Line Follower Robots (LFR)**, powered by Murf Falcon TTS, LiveKit Agents, Deepgram Nova-3, and Gemini.
 
 ## Repository structure
 
 ```
-murf-livekit-starter/
-├── backend/          # Python voice agent (LiveKit Agents + Murf Falcon TTS)
-│   ├── src/agent.py  # Agent entrypoint — all pipeline config lives here
-│   └── tests/        # LLM-judged eval tests
-├── frontend/         # Next.js UI (LiveKit Agents UI components)
-│   ├── app/          # Pages and API routes
-│   ├── components/   # UI components (agents-ui, app, ui)
-│   └── app-config.ts # Branding and feature config
+rishika-lfr-tutor/
+├── backend/          # Python voice agent service (LiveKit Agents + Murf Falcon TTS + SQLite)
+│   ├── src/agent.py  # Agent entrypoint & pipeline configuration
+│   └── tests/        # Pipeline & LLM-judged evaluation tests
+├── frontend/         # Next.js UI (LiveKit Agents UI & 3D WebGL interfaces)
+│   ├── app/          # App router pages & API token routes
+│   ├── components/   # UI components (agents-ui, app, custom tool cards)
+│   └── app-config.ts # Branding and feature configuration
 ├── start_app.sh      # Start all services (macOS/Linux)
 └── start_app.ps1     # Start all services (Windows)
 ```

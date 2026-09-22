@@ -1,6 +1,11 @@
 {
-  "name": "agent-starter-react",
+  "name": "rishika-frontend",
   "version": "0.1.0",
+  "description": "Rishika Frontend — Interactive Voice AI Interface for LFR Teaching Assistant",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mayank-CS50/Rishika-AI_Robotics_Guide.git"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

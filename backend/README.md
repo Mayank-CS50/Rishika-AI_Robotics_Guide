@@ -1,253 +1,126 @@
-# Backend — Voice Agent with Murf Falcon TTS
+# Rishika Backend — Voice AI Agent Service
 
-The Python backend for the Voice Agent Starter. It runs a real-time voice AI pipeline using [LiveKit Agents](https://docs.livekit.io/agents), connecting Murf Falcon TTS, Deepgram STT, and Google Gemini into a single conversational agent.
-LIVEKIT_URL=wss://murfai-cth8vjdb.livekit.cloud
-LIVEKIT_API_KEY=APIu3VfZ8KWsdCZ
-LIVEKIT_API_SECRET=Bm5LbdJDsnGQxVP31xcuPwWCBOGpKQHArD1iK2aQZIC
+The Python backend for **Rishika (Voice AI LFR Teaching Assistant)**. Built on [LiveKit Agents](https://docs.livekit.io/agents), it orchestrates a real-time conversational pipeline using **Deepgram Nova-3** (STT), **Google Gemini** (LLM & Tool Orchestrator), and **Murf Falcon** (TTS).
 
-## How It Works
+---
+
+## 🛠️ Architecture Overview
 
 ```
-User speaks → [Deepgram STT] → text → [Gemini LLM] → response → [Murf Falcon TTS] → audio → User hears
+User Audio Stream
+      │
+      ▼
+[Deepgram Nova-3 STT] (language="multi")
+      │
+      ▼
+[Google Gemini 3.5 Flash] (LLM + Function Tool Calling)
+      ├── SQLite Storage (Profiles, Escalations, Calls)
+      ├── Interactive Card Dispatch (LiveKit Data Channel)
+      └── Specialist Agent Routing (Kabir PID Coach)
+      │
+      ▼
+[Murf Falcon TTS] (Voice: Anisha / Samar)
+      │
+      ▼
+Synthesized Audio Stream
 ```
 
-LiveKit handles the real-time audio transport. The agent connects to LiveKit as a participant, listens for user speech, and responds with synthesized audio.
+---
 
-## Setup
+## 📦 Key Backend Modules
 
-### 1. Install dependencies
+| Module | Location | Purpose |
+| :--- | :--- | :--- |
+| **Main Pipeline** | [`src/agent.py`](src/agent.py) | Entrypoint connecting STT, LLM, TTS, LiveKit session, and function tools |
+| **Analytics Engine** | [`src/analytics.py`](src/analytics.py) | Call outcome classification, KPI tracking, and terminal stats |
+| **Database & Memory** | [`src/db_memory.py`](src/db_memory.py) | SQLite student profile store with explicit consent gates |
+| **Educational Tools** | [`src/educational_tools.py`](src/educational_tools.py) | Free Dictionary API, Open Trivia DB quiz generator & spoken scorer |
+| **Human Escalations** | [`src/escalations.py`](src/escalations.py) | Mentor ticket generation (`ESC-XXXX`), PII scrubber, and Ops page server |
+| **Specialist Agents** | [`src/specialists.py`](src/specialists.py) | Kabir PID Coach agent definition & context briefing routing |
+| **Static Intents** | [`src/static_intents.py`](src/static_intents.py) | Fast regex greetings/farewells (<50ms response) and spoken audio fillers |
 
+---
+
+## 🚀 Setup & Execution
+
+### 1. Install Dependencies
 ```bash
 cd backend
 uv sync
 ```
 
-### 2. Configure environment
-
+### 2. Configure Environment
+Copy `.env.example` to `.env.local`:
 ```bash
 cp .env.example .env.local
 ```
 
-Fill in your keys in `.env.local`:
-
-| Variable             | Where to get it                                           |
-| -------------------- | --------------------------------------------------------- |
-| `LIVEKIT_URL`        | [LiveKit Cloud](https://cloud.livekit.io/) → Settings     |
-| `LIVEKIT_API_KEY`    | [LiveKit Cloud](https://cloud.livekit.io/) → Settings     |
-| `LIVEKIT_API_SECRET` | [LiveKit Cloud](https://cloud.livekit.io/) → Settings     |
-| `MURF_API_KEY`       | [murf.ai/api/dashboard](https://murf.ai/api/dashboard)    |
-| `DEEPGRAM_API_KEY`   | [deepgram.com](https://console.deepgram.com/)             |
-| `GOOGLE_API_KEY`     | [aistudio.google.com](https://aistudio.google.com/apikey) |
-
-For LiveKit Cloud users, you can auto-populate LiveKit credentials:
-
-```bash
-lk cloud auth
-lk app env -w -d .env.local
+Fill in your required credentials in `.env.local`:
+```env
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your_key
+LIVEKIT_API_SECRET=your_secret
+MURF_API_KEY=your_murf_key
+DEEPGRAM_API_KEY=your_deepgram_key
+GOOGLE_API_KEY=your_google_key
 ```
 
-### 3. Download models
-
+### 3. Pre-download VAD & Turn Detector Models
 ```bash
 uv run python src/agent.py download-files
 ```
 
-This downloads Silero VAD and the LiveKit turn detector models.
-
-### 4. Run the agent
-
+### 4. Running the Backend
 ```bash
-# Development mode (auto-reload)
+# Development mode with auto-reload
 uv run python src/agent.py dev
 
-# Or test directly in your terminal (no frontend needed)
+# Terminal console testing mode (no frontend needed)
 uv run python src/agent.py console
 
-# Production
+# Production worker mode
 uv run python src/agent.py start
 ```
 
-## Day 5 — Tools & Live Data Sources
+### 5. Running Secondary Operations
+```bash
+# Start Mentor Desk & Ops Page (http://127.0.0.1:8787)
+uv run python src/escalations.py
 
-Rishika (LFR Teaching Assistant) uses non-blocking async tools with instant pre-execution audio fillers and out-loud graceful fallbacks:
-
-1. **Live Dictionary Lookup (`lookup_word_definition`)**:
-   - **Primary Data Source**: Live Free Dictionary API (`https://api.dictionaryapi.dev/api/v2/entries/en/{word}`).
-   - **Audio Filler**: *"Ek second, main dictionary check kar rahi hun..."*
-   - **Graceful Fallback**: Spoken out-loud notice explaining live server timeout, switching to general knowledge.
-
-2. **Robotics & Science Quiz Engine (`fetch_educational_quiz`)**:
-   - **Primary Data Source**: Live Open Trivia DB (`https://opentdb.com/api.php?amount=1&category=18&type=multiple`).
-   - **Fallback Data Source**: Hand-crafted local Python dataset (`LOCAL_FALLBACK_QUIZ` in `src/educational_tools.py`) covering IR sensors, L298N drivers, and Arduino loops.
-   - **Audio Filler**: *"Theek hai, main robotics quiz ka sawal nikal rahi hun..."*
-
-## Configuration
-
-All configuration lives in [`src/agent.py`](src/agent.py).
-
-### System prompt
-
-The `SYSTEM_PROMPT` constant at the top of `agent.py` controls what your agent does. Change it to build any voice-powered use case.
-
-#### Example prompts
-
-**Customer Support (default):**
-
-```
-You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate.
+# Print Call Analytics Summary
+uv run python src/analytics.py
 ```
 
-**Language Tutor:**
+---
 
-```
-You are a patient and encouraging language tutor helping the user practice conversational Spanish. Speak primarily in Spanish but switch to English to explain grammar or vocabulary when needed. Correct mistakes gently and suggest better phrasing. Keep conversations natural and fun.
-```
+## 🧪 Testing Suite
 
-**AI Receptionist:**
-
-```
-You are a professional receptionist for a medical clinic. Help callers schedule appointments, answer questions about office hours and services, and take messages for doctors. Be warm but efficient. Ask for the caller's name and reason for calling upfront.
-```
-
-**Interview Coach:**
-
-```
-You are an experienced interview coach. Conduct mock interviews with the user for software engineering roles. Ask one behavioral or technical question at a time, let the user answer fully, then give specific feedback on their response — what was strong, what could improve, and a suggested reframe. Keep the tone encouraging but honest.
-```
-
-**Sales Assistant:**
-
-```
-You are a knowledgeable sales assistant for an electronics store. Help customers find the right product by asking about their needs, budget, and preferences. Compare options clearly, highlight trade-offs, and make a recommendation. Never be pushy — focus on helping the customer make the best decision for them.
-```
-
-**Fitness Coach:**
-
-```
-You are an upbeat personal fitness coach. Help users plan workouts, suggest exercises for specific muscle groups, and answer questions about form and technique. Ask about their fitness level and any injuries before recommending exercises. Keep instructions clear and motivating.
-```
-
-**Storyteller / Bedtime Narrator:**
-
-```
-You are a creative storyteller who tells original bedtime stories for children aged 4–8. Ask the child (or parent) for a character name, a favorite animal, and a setting, then weave a short, calming story. Use vivid but simple language. End each story on a peaceful, sleepy note.
-```
-
-**Meeting Summarizer:**
-
-```
-You are a meeting assistant. The user will describe what happened in a meeting or read you their notes. Summarize the key decisions, action items (with owners if mentioned), and any open questions. Be concise and structured. Ask clarifying questions if something is ambiguous.
-```
-
-**Trivia Game Host:**
-
-```
-You are an enthusiastic trivia game host. Ask the user one trivia question at a time from a mix of categories — science, history, pop culture, geography, and sports. Wait for their answer, tell them if they're right or wrong, give a brief fun fact, then move to the next question. Keep score and announce it every 5 questions.
-```
-
-**Mental Health Check-in Companion:**
-
-```
-You are a gentle, non-clinical wellness companion. Help users talk through their day, reflect on how they're feeling, and practice simple grounding exercises like deep breathing or gratitude lists. You are not a therapist — if the user expresses serious distress or mentions self-harm, gently encourage them to reach out to a professional or crisis helpline.
-```
-
-### Voice
-
-Set the `voice` argument in the `murf.TTS(...)` call:
-
-```python
-tts=murf.TTS(
-    voice="en-US-matthew",    # Change this
-    style="Conversation",
-    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-    text_pacing=True
-)
-```
-
-Some voice options:
-
-| Voice ID | Description                      |
-| -------- | -------------------------------- |
-| `Anisha` | Indian English, female (default) |
-| `Pooja`  | Indian English, female           |
-| `Samar`  | Indian English, male             |
-| `Amara`  | US English, female               |
-| `Hazel`  | UK English, female               |
-| `Bertie` | UK English, male                 |
-| `Gordon` | US English, male                 |
-
-Browse all 150+ voices: [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library).
-
-### STT (Speech-to-Text)
-
-Default is Deepgram Nova-3. Change in the `AgentSession(stt=...)` call:
-
-```python
-stt=deepgram.STT(model="nova-3")
-```
-
-### LLM
-
-Default is Google Gemini. To switch:
-
-- **Gemini (default):** Set `GOOGLE_API_KEY` in `.env.local`
-- **OpenAI:** Set `OPENAI_API_KEY`, install `livekit-agents[openai]`, and change the `llm=` argument
-
-## Testing
-
-The project includes an eval suite based on the LiveKit Agents [testing framework](https://docs.livekit.io/agents/build/testing/):
+Run all automated unit tests and LLM evaluation benchmarks:
 
 ```bash
 uv run pytest
 ```
 
-Tests are in [`tests/test_agent.py`](tests/test_agent.py) and use LLM-as-judge evaluations to verify the agent behaves correctly (friendly greetings, grounding, refusing harmful requests).
+Test files are located in `tests/`:
+- `test_agent.py` — Voice pipeline evals
+- `test_analytics.py` — Call classification & PII sanitization checks
+- `test_educational_tools.py` — Quiz dataset fallbacks
+- `test_escalation.py` — Mentor ticket creation & consent gates
+- `test_handoff.py` — Kabir PID Coach routing and handback checks
+- `test_outbound.py` — Telephony dispatch opt-out validation
 
-To run tests in CI, you'll need to add `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` as repository secrets.
+---
 
-## Deployment
+## 🐳 Container Deployment
 
-### Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tIVCF1?referralCode=cNjn2P&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
-Set these environment variables in Railway:
-
-- `MURF_API_KEY`
-- `DEEPGRAM_API_KEY`
-- `GOOGLE_API_KEY`
-- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-
-### Docker
-
-A production-ready [Dockerfile](Dockerfile) is included:
+Build and run using Docker:
 
 ```bash
-docker build -t murf-voice-agent .
-docker run --env-file .env.local murf-voice-agent
+docker build -t rishika-backend .
+docker run --env-file .env.local rishika-backend
 ```
 
-## Project Structure
+---
 
-```
-backend/
-├── src/
-│   └── agent.py          # Agent entrypoint — pipeline, prompt, config
-├── tests/
-│   └── test_agent.py     # LLM-judged eval suite
-├── .env.example           # Environment variable template
-├── pyproject.toml         # Python dependencies (uv)
-├── Dockerfile             # Production container
-└── railway.toml           # Railway deploy config
-```
-
-## Links
-
-- [Murf Falcon TTS Docs](https://murf.ai/api/docs/text-to-speech/streaming)
-- [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)
-- [LiveKit Agents Docs](https://docs.livekit.io/agents)
-- [Deepgram Nova-3 Docs](https://developers.deepgram.com)
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+## 📄 License
+MIT License

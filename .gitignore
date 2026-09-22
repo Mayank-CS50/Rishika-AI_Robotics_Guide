@@ -1,4 +1,18 @@
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# OS Clutter & System
 .DS_Store
+Thumbs.db
+
+# Archive & Temporary Workspace Clutter
+_archive_clutter/
+.claude/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.next/
+node_modules/
