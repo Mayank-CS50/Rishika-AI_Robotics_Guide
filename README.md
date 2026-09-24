@@ -8,7 +8,7 @@
 ![Deepgram](https://img.shields.io/badge/STT-Deepgram%20Nova--3-13EF95)
 ![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-8E75FF)
 
-**Rishika** is a real-time, bilingual (Hindi + English) conversational Voice AI Assistant designed to help robotics students, engineers, and hobbyists build and debug **Line Follower Robots (LFR)**. 
+**Rishika** is a real-time, bilingual (Hindi + English) conversational Voice AI Assistant designed to help robotics students, engineers, and hobbyists build and debug **Line Follower Robots (LFR)**.
 
 When hands are occupied holding multimeters, soldering irons, or adjusting trimpots, Rishika provides instant hands-free guidance in Hinglish, diagnoses hardware faults, scores quiz knowledge, and hands off complex PID loop tuning to specialized AI agents.
 
